@@ -1,9 +1,11 @@
-import { Text, View,StyleSheet } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
+import Navbar from '../components/navigation/NavBar';
 
 export default function Index() {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>wanderbook</Text>
+      <Navbar />
     </View>
   );
 }
