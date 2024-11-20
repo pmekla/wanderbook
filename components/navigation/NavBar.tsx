@@ -10,41 +10,41 @@ const Navbar = () => {
   return (
     <Box
       sx={{
-        display: 'flex',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        padding: '1rem 0',
-        backgroundColor: '#6F969E',
-        position: 'fixed',
+        display: "flex",
+        justifyContent: "space-around",
+        alignItems: "center",
+        padding: "1rem 0",
+        backgroundColor: "#6F969E",
+        position: "fixed",
         bottom: 0,
-        width: '100%',
+        width: "100%",
       }}
     >
       <IconButton aria-label="home">
-        <HomeIcon style={{ color: 'black', fontSize: 'large' }} />
+        <HomeIcon style={{ color: "black", fontSize: "large" }} />
       </IconButton>
       <IconButton aria-label="location">
-        <LocationOnIcon style={{ color: 'black', fontSize: 'large' }} />
+        <LocationOnIcon style={{ color: "black", fontSize: "large" }} />
       </IconButton>
       <Box
         sx={{
-          backgroundColor: '#B3B3B3',
-          borderRadius: '50%',
-          padding: '0.5rem',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
+          backgroundColor: "#B3B3B3",
+          borderRadius: "50%",
+          padding: "0.5rem",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
         }}
       >
         <IconButton aria-label="add">
-          <AddIcon style={{ color: 'black', fontSize: 'large' }} />
+          <AddIcon style={{ color: "black", fontSize: "large" }} />
         </IconButton>
       </Box>
       <IconButton aria-label="book">
-        <MenuBookIcon style={{ color: 'black', fontSize: 'large' }} />
+        <MenuBookIcon style={{ color: "black", fontSize: "large" }} />
       </IconButton>
       <IconButton aria-label="profile">
-        <AccountCircleIcon style={{ color: 'black', fontSize: 'large' }} />
+        <AccountCircleIcon style={{ color: "black", fontSize: "large" }} />
       </IconButton>
     </Box>
   );
