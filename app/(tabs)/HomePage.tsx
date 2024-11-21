@@ -1,50 +1,67 @@
 import React from "react";
-import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, SafeAreaView } from "react-native";
 
 const HomePage = () => {
   const recentLists = ["List 1", "List 2", "List 3", "List 4"];
   const topSpots = [
-    { id: 1, title: "Annapolis Rock", image: "https://via.placeholder.com/150", details: "Length: 5 miles\nElevation: 840 ft\nDifficulty: Moderate\nPermit Required: None" },
-    { id: 2, title: "Annapolis Rock", image: "https://via.placeholder.com/150", details: "Length: 5 miles\nElevation: 840 ft\nDifficulty: Moderate\nPermit Required: None" },
+    {
+      id: 1,
+      title: "Annapolis Rock",
+      image: "https://via.placeholder.com/150",
+      details:
+        "Length: 5 miles\nElevation: 840 ft\nDifficulty: Moderate\nPermit Required: None",
+    },
+    {
+      id: 2,
+      title: "Annapolis Rock",
+      image: "https://via.placeholder.com/150",
+      details:
+        "Length: 5 miles\nElevation: 840 ft\nDifficulty: Moderate\nPermit Required: None",
+    },
   ];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>home</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.header}>home</Text>
 
-      {/* Recent Lists */}
-      <Text style={styles.sectionTitle}>Recent Lists</Text>
-      <View style={styles.listContainer}>
-        {recentLists.map((item, index) => (
-          <View key={index} style={styles.card}>
-            <Text>—</Text>
-          </View>
-        ))}
+        {/* Recent Lists */}
+        <Text style={styles.sectionTitle}>Recent Lists</Text>
+        <View style={styles.listContainer}>
+          {recentLists.map((item, index) => (
+            <View key={index} style={styles.card}>
+              <Text>—</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Top Spots */}
+        <Text style={styles.sectionTitle}>Top Spots</Text>
+        <FlatList
+          data={topSpots}
+          horizontal
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.spotCard}>
+              <Image source={{ uri: item.image }} style={styles.spotImage} />
+              <Text style={styles.spotTitle}>{item.title}</Text>
+              <Text style={styles.spotDetails}>{item.details}</Text>
+            </TouchableOpacity>
+          )}
+        />
       </View>
-
-      {/* Top Spots */}
-      <Text style={styles.sectionTitle}>Top Spots</Text>
-      <FlatList
-        data={topSpots}
-        horizontal
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.spotCard}>
-            <Image source={{ uri: item.image }} style={styles.spotImage} />
-            <Text style={styles.spotTitle}>{item.title}</Text>
-            <Text style={styles.spotDetails}>{item.details}</Text>
-          </TouchableOpacity>
-        )}
-      />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFF5E4", // Same as your container background to maintain consistency
+  },
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#FFF5E4",
   },
   header: {
     fontSize: 36,
