@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons"; // Import Ionicons for tab bar ic
 export default function TabsLayout() {
   return (
     <Tabs>
+      {/* Home Page */}
       <Tabs.Screen
         name="HomePage"
         options={{
@@ -11,9 +12,11 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} /> // Home icon
           ),
-          headerShown: false,
+          headerShown: false, // Hides the default header
         }}
       />
+
+      {/* Map View Page */}
       <Tabs.Screen
         name="MapViewPage"
         options={{
@@ -21,9 +24,11 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map" size={size} color={color} /> // Map icon
           ),
-          headerShown: false,
+          headerShown: false, // Hides the default header
         }}
       />
+
+      {/* Add Item Page */}
       <Tabs.Screen
         name="AddItemPage"
         options={{
@@ -31,9 +36,11 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="add-circle" size={size} color={color} /> // Add Item icon
           ),
-          headerShown: false,
+          headerShown: false, // Hides the default header
         }}
       />
+
+      {/* Bucket List Page */}
       <Tabs.Screen
         name="BucketListPage"
         options={{
@@ -41,9 +48,11 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="checkmark-circle" size={size} color={color} /> // Bucket List icon
           ),
-          headerShown: false,
+          headerShown: false, // Hides the default header
         }}
       />
+
+      {/* Profile Page */}
       <Tabs.Screen
         name="ProfilePage"
         options={{
@@ -51,7 +60,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-circle" size={size} color={color} /> // Profile icon
           ),
-          headerShown: false,
+          headerShown: false, // Hides the default header
         }}
       />
     </Tabs>
