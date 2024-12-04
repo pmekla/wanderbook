@@ -1,23 +1,24 @@
 import React, { useState } from "react";
 import {
   View,
+  SafeAreaView,
   Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   StatusBar,
 } from "react-native";
+
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { NativeStackScreenProps } from "@react-navigation/native-stack"; // Import stack navigation types
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-// Define the navigation type for your app
+
 type RootStackParamList = {
   HomePage: undefined;
-  MapViewPage: undefined; // Add MapViewPage here
+  MapViewPage: undefined;
   AddItemPage: undefined;
   BucketListPage: undefined;
   ProfilePage: undefined;
@@ -26,6 +27,7 @@ type RootStackParamList = {
 export type NavigationProps = NativeStackScreenProps<RootStackParamList>;
 
 const AddItemPage = () => {
+
   const navigation = useNavigation<NavigationProps["navigation"]>();
 
   const [name, setName] = useState("");
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#FFF5E4",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0, // Add padding for Android if needed
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
