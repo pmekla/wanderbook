@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   SafeAreaView,
@@ -14,7 +14,9 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import * as Location from "expo-location";
 
 type RootStackParamList = {
   HomePage: undefined;
@@ -26,8 +28,7 @@ type RootStackParamList = {
 
 export type NavigationProps = NativeStackScreenProps<RootStackParamList>;
 
-const AddItemPage = () => {
-
+export default function AddItemPage() {
   const navigation = useNavigation<NavigationProps["navigation"]>();
 
   const [name, setName] = useState("");
@@ -36,7 +37,29 @@ const AddItemPage = () => {
   const [visibility, setVisibility] = useState("Private");
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [userID, setUserID] = useState("1"); // Placeholder for user ID
   const images = [null, null, null]; // Placeholder for images
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      // Request permission to access location
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        console.log("Permission to access location was denied");
+        return;
+      }
+      // Get current location
+      let currentLocation = await Location.getCurrentPositionAsync({});
+      setLocation({
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+      });
+    })();
+  }, []);
 
   // Function to handle date selection
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -59,6 +82,32 @@ const AddItemPage = () => {
   // Function to handle visibility
   const handleVisibility = (option: string) => {
     setVisibility(option);
+  };
+
+  //function to generate a unique ID
+  const generateID = () => {
+    return Math.random().toString(36).substr(2, 9);
+  };
+
+  const savePost = async () => {
+    // Prepare post data
+    const postData = {
+      postID: generateID(), // Generate a unique ID
+      userID: userID, // Replace with actual user ID
+      title: name,
+      description: description,
+      rating: rating,
+      visibility: visibility.toLowerCase(),
+      images: [], // Add image URLs if applicable
+      location: location || { latitude: 0, longitude: 0 },
+    };
+    try {
+      const docRef = await addDoc(collection(db, "posts"), postData);
+      console.log("Document written with ID: ", docRef.id);
+      // ...existing code...
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
   };
 
   return (
@@ -143,9 +192,7 @@ const AddItemPage = () => {
             >
               <Ionicons
                 name={
-                  visibility === option
-                    ? "radio-button-on"
-                    : "radio-button-off"
+                  visibility === option ? "radio-button-on" : "radio-button-off"
                 }
                 size={20}
                 color="#000"
@@ -156,13 +203,13 @@ const AddItemPage = () => {
         </View>
 
         {/* Save Button */}
-        <TouchableOpacity style={styles.saveButton}>
+        <TouchableOpacity style={styles.saveButton} onPress={savePost}>
           <Text style={styles.saveButtonText}>SAVE</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -267,5 +314,3 @@ const styles = StyleSheet.create({
     color: "#000",
   },
 });
-
-export default AddItemPage;
