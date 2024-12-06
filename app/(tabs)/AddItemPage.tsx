@@ -21,6 +21,8 @@ import { db, storage } from "../../firebaseConfig.js";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import "react-native-get-random-values";
+import { v4 as uuidv4 } from "uuid";
 
 type RootStackParamList = {
   HomePage: undefined;
@@ -149,13 +151,12 @@ export default function AddItemPage() {
     try {
       const imageUrls = await uploadImagesToFirebase();
       const postData = {
-        postID: generateID(),
+        postID: uuidv4(),
         userID: userID,
         title: name,
         description: description,
         rating: rating,
         visibility: visibility.toLowerCase(),
-        images: imageUrls,
         location: location || { latitude: 0, longitude: 0 },
         createdAt: serverTimestamp(),
       };
