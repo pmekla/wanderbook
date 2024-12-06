@@ -8,15 +8,19 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Image,
 } from "react-native";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../../firebaseConfig.js";
 import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type RootStackParamList = {
   HomePage: undefined;
@@ -38,7 +42,7 @@ export default function AddItemPage() {
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [userID, setUserID] = useState("1"); // Placeholder for user ID
-  const images = [null, null, null]; // Placeholder for images
+  const [images, setImages] = useState<string[]>([]);
   const [location, setLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -58,6 +62,17 @@ export default function AddItemPage() {
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
       });
+    })();
+  }, []);
+
+  // Request camera & media library permissions
+  useEffect(() => {
+    (async () => {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        alert("Sorry, we need camera roll permissions to upload images!");
+      }
     })();
   }, []);
 
@@ -89,24 +104,73 @@ export default function AddItemPage() {
     return Math.random().toString(36).substr(2, 9);
   };
 
+  // Handle image picking
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      // Add new image to array if less than 3 images
+      if (images.length < 3) {
+        setImages([...images, result.assets[0].uri]);
+        // Temporarily store image URI
+        await AsyncStorage.setItem(
+          `temp_image_${images.length}`,
+          result.assets[0].uri
+        );
+      }
+    }
+  };
+
+  // Upload images to Firebase
+  const uploadImagesToFirebase = async () => {
+    const imageUrls = [];
+
+    for (const imageUri of images) {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+
+      const imageName = `post_${generateID()}_${new Date().getTime()}`;
+      const imageRef = ref(storage, `images/${imageName}`); // Using imported storage
+
+      await uploadBytes(imageRef, blob);
+      const downloadUrl = await getDownloadURL(imageRef);
+      imageUrls.push(downloadUrl);
+    }
+
+    return imageUrls;
+  };
+
   const savePost = async () => {
-    // Prepare post data
-    const postData = {
-      postID: generateID(), // Generate a unique ID
-      userID: userID, // Replace with actual user ID
-      title: name,
-      description: description,
-      rating: rating,
-      visibility: visibility.toLowerCase(),
-      images: [], // Add image URLs if applicable
-      location: location || { latitude: 0, longitude: 0 },
-    };
     try {
-      const docRef = await addDoc(collection(db, "posts"), postData);
-      console.log("Document written with ID: ", docRef.id);
-      // ...existing code...
-    } catch (e) {
-      console.error("Error adding document: ", e);
+      const imageUrls = await uploadImagesToFirebase();
+      const postData = {
+        postID: generateID(),
+        userID: userID,
+        title: name,
+        description: description,
+        rating: rating,
+        visibility: visibility.toLowerCase(),
+        images: imageUrls,
+        location: location || { latitude: 0, longitude: 0 },
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "posts"), postData); // Using imported db
+      // Clear temporary stored images
+      for (let i = 0; i < 3; i++) {
+        await AsyncStorage.removeItem(`temp_image_${i}`);
+      }
+      setImages([]);
+
+      console.log("Post added successfully!");
+      navigation.navigate("HomePage");
+    } catch (error) {
+      console.error("Error occurred:", error);
     }
   };
 
@@ -150,14 +214,22 @@ export default function AddItemPage() {
 
         {/* Image Upload Section */}
         <View style={styles.imageContainer}>
-          {images.map((img, index) => (
-            <TouchableOpacity key={index} style={styles.imagePlaceholder}>
-              <Ionicons name="image" size={40} color="#ccc" />
+          {[0, 1, 2].map((index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.imagePlaceholder}
+              onPress={images.length < 3 ? pickImage : undefined}
+            >
+              {images[index] ? (
+                <Image
+                  source={{ uri: images[index] }}
+                  style={{ width: "100%", height: "100%", borderRadius: 8 }}
+                />
+              ) : (
+                <Ionicons name="image" size={40} color="#ccc" />
+              )}
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.addIcon}>
-            <Ionicons name="camera" size={40} color="#333" />
-          </TouchableOpacity>
         </View>
 
         {/* Description Input */}
@@ -261,17 +333,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   imagePlaceholder: {
-    width: 70,
-    height: 70,
+    width: 80,
+    height: 80,
     backgroundColor: "#eee",
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 2,
-  },
-  addIcon: {
-    justifyContent: "center",
-    alignItems: "center",
+    marginRight: 10,
+    overflow: "hidden",
   },
   textArea: {
     backgroundColor: "#ddd",
