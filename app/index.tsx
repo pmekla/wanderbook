@@ -8,8 +8,8 @@ import {
   ImageBackground,
 } from "react-native";
 import { useRouter } from "expo-router";
-import * as Font from "expo-font"; // For custom font loading
-import AppLoading from "expo-app-loading"; // To handle font loading
+import * as Font from "expo-font";
+import AppLoading from "expo-app-loading";
 
 const backgroundImage = require("../assets/images/LoginBackground.jpeg");
 
