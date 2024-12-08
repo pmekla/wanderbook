@@ -1,16 +1,18 @@
-import React, { useState, useRef } from "react";
-import MapView, { Marker, Region } from "react-native-maps";
+import React, { useState, useRef, useEffect } from "react";
+import MapView, { Marker, Region, Callout } from "react-native-maps";
 import {
   StyleSheet,
   View,
   TouchableOpacity,
-  TextInput,
   Text,
-  Image,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "../../firebaseConfig.js";
+import { Ionicons } from "@expo/vector-icons"; // Add this import
 
 export default function MapViewPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,6 +24,59 @@ export default function MapViewPage() {
     longitudeDelta: 0.0421,
   });
   const mapRef = useRef<MapView>(null);
+  const [markers, setMarkers] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<Region | null>(null);
+  const [visitedLocations, setVisitedLocations] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Location permission is required.");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const newRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      };
+      setRegion(newRegion);
+      setUserLocation(newRegion);
+    })();
+    fetchAllVisitedLocations();
+  }, []);
+
+  const fetchAllVisitedLocations = async () => {
+    try {
+      const postsQuery = query(collection(db, "posts"));
+      const querySnapshot = await getDocs(postsQuery);
+      const locations = querySnapshot.docs
+        .map((doc) => {
+          const data = doc.data();
+          // Make sure we're accessing the correct path to coordinates
+          const lat = data.location?.latitude || data.latitude;
+          const lng = data.location?.longitude || data.longitude;
+
+          return {
+            id: data.postID,
+            title: data.title || "Visited Location",
+            latitude: typeof lat === "number" ? lat : parseFloat(lat),
+            longitude: typeof lng === "number" ? lng : parseFloat(lng),
+            description: data.description || "",
+          };
+        })
+        .filter((loc) => !isNaN(loc.latitude) && !isNaN(loc.longitude)); // Better validation
+
+      console.log("Processed visited locations:", locations);
+      setVisitedLocations(locations);
+    } catch (error) {
+      console.error("Error fetching visited locations:", error);
+    }
+  };
 
   const handleSearch = (data: any, details: any = null) => {
     if (details) {
@@ -36,25 +91,166 @@ export default function MapViewPage() {
     }
   };
 
+  const handleMapLongPress = (e: any) => {
+    const { coordinate } = e.nativeEvent;
+    setSelectedLocation({
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+    });
+    Alert.alert(
+      "Location Selected",
+      `Lat: ${coordinate.latitude}, Lng: ${coordinate.longitude}`
+    );
+  };
+
+  const fetchLocationsByCategory = async (category: string) => {
+    setSelectedCategory(category);
+    try {
+      let locationQuery;
+      if (category === "Visited") {
+        // Fetch visited locations from your posts collection
+        locationQuery = query(collection(db, "posts"));
+      } else {
+        // Here you would typically query a Places API for other categories
+        // For demo, we'll just show some dummy data
+        const dummyLocations = [
+          {
+            latitude: region.latitude + 0.01,
+            longitude: region.longitude + 0.01,
+            title: `${category} 1`,
+          },
+          {
+            latitude: region.latitude - 0.01,
+            longitude: region.longitude - 0.01,
+            title: `${category} 2`,
+          },
+          {
+            latitude: region.latitude,
+            longitude: region.longitude + 0.02,
+            title: `${category} 3`,
+          },
+        ];
+        setMarkers(dummyLocations);
+        return;
+      }
+
+      const querySnapshot = await getDocs(locationQuery);
+      const locations = querySnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+        title: "Visited Location",
+      }));
+      setMarkers(locations);
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+      Alert.alert("Error", "Failed to fetch locations");
+    }
+  };
+
+  const handleZoomIn = () => {
+    const newRegion = {
+      ...region,
+      latitudeDelta: region.latitudeDelta / 2,
+      longitudeDelta: region.longitudeDelta / 2,
+    };
+    setRegion(newRegion);
+    mapRef.current?.animateToRegion(newRegion);
+  };
+
+  const handleZoomOut = () => {
+    const maxDelta = 100; // Maximum zoom out level
+    const newLatDelta = region.latitudeDelta * 2;
+    const newLongDelta = region.longitudeDelta * 2;
+
+    if (newLatDelta > maxDelta || newLongDelta > maxDelta) {
+      return; // Prevent zooming out further
+    }
+
+    const newRegion = {
+      ...region,
+      latitudeDelta: newLatDelta,
+      longitudeDelta: newLongDelta,
+    };
+    setRegion(newRegion);
+    mapRef.current?.animateToRegion(newRegion);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safeArea}>
         <Text style={styles.header}>find spots!</Text>
 
-        {/* Replace the search container with GooglePlacesAutocomplete */}
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          region={region}
+          onLongPress={handleMapLongPress}
+          minZoomLevel={2} // Add minimum zoom level
+          maxZoomLevel={20} // Add maximum zoom level
+        >
+          {userLocation && (
+            <Marker
+              coordinate={{
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+              }}
+              title="You are here"
+              pinColor="blue"
+            />
+          )}
 
-        {/* Update MapView with ref and region */}
-        <MapView ref={mapRef} style={styles.map} region={region}>
-          <Marker
-            coordinate={{
-              latitude: region.latitude,
-              longitude: region.longitude,
-            }}
-          />
+          {visitedLocations.map((location, index) => (
+            <Marker
+              key={`visited-${location.id || index}`}
+              coordinate={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+              }}
+              pinColor="green"
+            >
+              <Callout>
+                <Text>{location.title}</Text>
+                {location.description && <Text>{location.description}</Text>}
+              </Callout>
+            </Marker>
+          ))}
+
+          {markers.map((marker, index) => (
+            <Marker
+              key={`category-${index}`}
+              coordinate={{
+                latitude: marker.latitude,
+                longitude: marker.longitude,
+              }}
+              title={marker.title}
+              pinColor={selectedCategory === "Visited" ? "green" : "yellow"}
+            >
+              <Callout>
+                <Text>{marker.title}</Text>
+              </Callout>
+            </Marker>
+          ))}
+
+          {selectedLocation && (
+            <Marker
+              coordinate={selectedLocation}
+              pinColor="red"
+              title="Selected Location"
+            />
+          )}
         </MapView>
 
-        {/* Category Filters */}
+        {/* Add Zoom Controls */}
+        <View style={styles.zoomControls}>
+          <TouchableOpacity style={styles.zoomButton} onPress={handleZoomIn}>
+            <Ionicons name="add" size={24} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.zoomButton} onPress={handleZoomOut}>
+            <Ionicons name="remove" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.categoryContainer}>
           {["Food", "Nature", "Urban", "Landmarks", "Visited"].map(
             (category) => (
@@ -64,7 +260,7 @@ export default function MapViewPage() {
                   styles.categoryButton,
                   selectedCategory === category && styles.categoryButtonActive,
                 ]}
-                onPress={() => setSelectedCategory(category)}
+                onPress={() => fetchLocationsByCategory(category)}
               >
                 <Text
                   style={[
@@ -78,7 +274,7 @@ export default function MapViewPage() {
             )
           )}
         </View>
-        {/* Thumbnail Section */}
+
         <View style={styles.thumbnailContainer}>
           <View style={styles.thumbnailBox} />
           <View style={styles.thumbnailBox} />
@@ -92,11 +288,11 @@ export default function MapViewPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FDF5E6", // Light beige background
+    backgroundColor: "#FFF5E4", // Light beige background
   },
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF5E4",
   },
   header: {
     fontSize: 24,
@@ -134,6 +330,8 @@ const styles = StyleSheet.create({
     margin: 20,
     borderWidth: 2,
     borderColor: "#333",
+    borderRadius: 20, // Add rounded corners
+    overflow: "hidden", // Ensure content respects border radius
   },
   categoryContainer: {
     flexDirection: "row",
@@ -171,5 +369,29 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#AAA",
+  },
+  zoomControls: {
+    position: "absolute",
+    right: 30,
+    top: "50%",
+    backgroundColor: "white",
+    borderRadius: 8,
+    padding: 5,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  zoomButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 5,
+    marginVertical: 5,
+    borderWidth: 1,
+    borderColor: "#ddd",
   },
 });

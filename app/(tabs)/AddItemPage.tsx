@@ -9,6 +9,9 @@ import {
   Platform,
   StatusBar,
   Image,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -16,13 +19,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../../firebaseConfig.js";
+import { db } from "../../firebaseConfig.js";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
+import * as FileSystem from "expo-file-system";
 
 type RootStackParamList = {
   HomePage: undefined;
@@ -49,6 +52,7 @@ export default function AddItemPage() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [imageData, setImageData] = useState<string[]>([]); // State for base64 images
 
   useEffect(() => {
     (async () => {
@@ -116,40 +120,40 @@ export default function AddItemPage() {
     });
 
     if (!result.canceled && result.assets[0].uri) {
-      // Add new image to array if less than 3 images
-      if (images.length < 3) {
-        setImages([...images, result.assets[0].uri]);
-        // Temporarily store image URI
-        await AsyncStorage.setItem(
-          `temp_image_${images.length}`,
-          result.assets[0].uri
-        );
-      }
+      // Generate a unique ID for the image
+      const imageID = `image_${uuidv4()}`;
+
+      // Read the image file as base64
+      const imageUri = result.assets[0].uri;
+      const base64Data = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Store image in AsyncStorage
+      await AsyncStorage.setItem(imageID, base64Data);
+
+      // Update state with image ID and data
+      setImages([...images, imageID]);
+      setImageData([...imageData, base64Data]);
     }
   };
 
-  // Upload images to Firebase
-  const uploadImagesToFirebase = async () => {
-    const imageUrls = [];
+  // Function to handle removing an image
+  const handleRemoveImage = (index: number) => {
+    const updatedImages = [...images];
+    const updatedImageData = [...imageData];
 
-    for (const imageUri of images) {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
+    // Remove the image at the specified index
+    updatedImages.splice(index, 1);
+    updatedImageData.splice(index, 1);
 
-      const imageName = `post_${generateID()}_${new Date().getTime()}`;
-      const imageRef = ref(storage, `images/${imageName}`); // Using imported storage
-
-      await uploadBytes(imageRef, blob);
-      const downloadUrl = await getDownloadURL(imageRef);
-      imageUrls.push(downloadUrl);
-    }
-
-    return imageUrls;
+    // Update the state
+    setImages(updatedImages);
+    setImageData(updatedImageData);
   };
 
   const savePost = async () => {
     try {
-      const imageUrls = await uploadImagesToFirebase();
       const postData = {
         postID: uuidv4(),
         userID: userID,
@@ -159,14 +163,16 @@ export default function AddItemPage() {
         visibility: visibility.toLowerCase(),
         location: location || { latitude: 0, longitude: 0 },
         createdAt: serverTimestamp(),
+        imageIDs: images, // Add image IDs to post data
       };
 
       await addDoc(collection(db, "posts"), postData); // Using imported db
-      // Clear temporary stored images
-      for (let i = 0; i < 3; i++) {
-        await AsyncStorage.removeItem(`temp_image_${i}`);
+      // Clear images from AsyncStorage
+      for (const imageID of images) {
+        await AsyncStorage.removeItem(imageID);
       }
       setImages([]);
+      setImageData([]);
 
       console.log("Post added successfully!");
       navigation.navigate("HomePage");
@@ -177,109 +183,132 @@ export default function AddItemPage() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.header}>New Adventure</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.container}>
+            <Text style={styles.header}>New Adventure</Text>
 
-        {/* Name Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Name"
-            value={name}
-            onChangeText={setName}
-          />
-          <TouchableOpacity onPress={() => navigation.navigate("MapViewPage")}>
-            <Text style={styles.icon}>📍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={openDatePicker}>
-            <Text style={styles.icon}>📅</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Name Input */}
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Name"
+                value={name}
+                onChangeText={setName}
+              />
+              <TouchableOpacity
+                onPress={() => navigation.navigate("MapViewPage")}
+              >
+                <Text style={styles.icon}>📍</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={openDatePicker}>
+                <Text style={styles.icon}>📅</Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Display Selected Date */}
-        {date && (
-          <Text style={styles.dateText}>
-            Adventure Date: {date.toDateString()}
-          </Text>
-        )}
+            {/* Display Selected Date */}
+            {date && (
+              <Text style={styles.dateText}>
+                Adventure Date: {date.toDateString()}
+              </Text>
+            )}
 
-        {/* Date Picker */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={date || new Date()}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-          />
-        )}
+            {/* Date Picker */}
+            {showDatePicker && (
+              <DateTimePicker
+                value={date || new Date()}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
 
-        {/* Image Upload Section */}
-        <View style={styles.imageContainer}>
-          {[0, 1, 2].map((index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.imagePlaceholder}
-              onPress={images.length < 3 ? pickImage : undefined}
-            >
-              {images[index] ? (
-                <Image
-                  source={{ uri: images[index] }}
-                  style={{ width: "100%", height: "100%", borderRadius: 8 }}
-                />
-              ) : (
-                <Ionicons name="image" size={40} color="#ccc" />
+            {/* Image Upload Section */}
+            <View style={styles.imageContainer}>
+              {imageData.map((base64Data, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.imagePlaceholder}
+                  onPress={images.length < 3 ? pickImage : undefined}
+                  onLongPress={() => handleRemoveImage(index)}
+                >
+                  {base64Data ? (
+                    <Image
+                      source={{ uri: `data:image/jpeg;base64,${base64Data}` }}
+                      style={{ width: "100%", height: "100%", borderRadius: 8 }}
+                    />
+                  ) : (
+                    <Ionicons name="image" size={40} color="#ccc" />
+                  )}
+                </TouchableOpacity>
+              ))}
+              {images.length < 3 && (
+                <TouchableOpacity
+                  style={styles.imagePlaceholder}
+                  onPress={pickImage}
+                >
+                  <Ionicons name="add" size={40} color="#ccc" />
+                </TouchableOpacity>
               )}
+            </View>
+
+            {/* Description Input */}
+            <TextInput
+              style={styles.textArea}
+              placeholder="Write about your adventure..."
+              multiline
+              value={description}
+              onChangeText={setDescription}
+            />
+
+            {/* Rating Section */}
+            <View style={styles.ratingContainer}>
+              {[...Array(5)].map((_, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => handleRating(index)}
+                >
+                  <Ionicons
+                    name={index < rating ? "star" : "star-outline"}
+                    size={32}
+                    color={index < rating ? "#FFD700" : "#ccc"}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Visibility Options */}
+            <View style={styles.visibilityContainer}>
+              {["Private", "Friends", "Public"].map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={styles.visibilityOption}
+                  onPress={() => handleVisibility(option)}
+                >
+                  <Ionicons
+                    name={
+                      visibility === option
+                        ? "radio-button-on"
+                        : "radio-button-off"
+                    }
+                    size={20}
+                    color="#000"
+                  />
+                  <Text style={styles.visibilityText}>{option}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Save Button */}
+            <TouchableOpacity style={styles.saveButton} onPress={savePost}>
+              <Text style={styles.saveButtonText}>POST ADVENTURE 🏔️ </Text>
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Description Input */}
-        <TextInput
-          style={styles.textArea}
-          placeholder="Write about your adventure..."
-          multiline
-          value={description}
-          onChangeText={setDescription}
-        />
-
-        {/* Rating Section */}
-        <View style={styles.ratingContainer}>
-          {[...Array(5)].map((_, index) => (
-            <TouchableOpacity key={index} onPress={() => handleRating(index)}>
-              <Ionicons
-                name={index < rating ? "star" : "star-outline"}
-                size={32}
-                color={index < rating ? "#FFD700" : "#ccc"}
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Visibility Options */}
-        <View style={styles.visibilityContainer}>
-          {["Private", "Friends", "Public"].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={styles.visibilityOption}
-              onPress={() => handleVisibility(option)}
-            >
-              <Ionicons
-                name={
-                  visibility === option ? "radio-button-on" : "radio-button-off"
-                }
-                size={20}
-                color="#000"
-              />
-              <Text style={styles.visibilityText}>{option}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity style={styles.saveButton} onPress={savePost}>
-          <Text style={styles.saveButtonText}>SAVE</Text>
-        </TouchableOpacity>
-      </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -342,6 +371,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 10,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#ccc",
   },
   textArea: {
     backgroundColor: "#ddd",

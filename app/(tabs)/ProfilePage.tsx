@@ -1,71 +1,116 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Image,
   TouchableOpacity,
-  ScrollView,
   SafeAreaView,
   StatusBar,
+  FlatList,
 } from "react-native";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../firebaseConfig.js";
+
+type Post = {
+  postID: string;
+  title: string;
+  imageURLs: string[];
+};
 
 const ProfilePage = () => {
+  const [activeTab, setActiveTab] = useState("Lists");
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+
+  useEffect(() => {
+    if (activeTab === "Posts") {
+      const fetchUserPosts = async () => {
+        try {
+          const userID = "1"; // Replace with actual user ID
+          const postsRef = collection(db, "posts");
+          const q = query(postsRef, where("userID", "==", userID));
+          const querySnapshot = await getDocs(q);
+
+          const postsData = querySnapshot.docs.map((doc) => ({
+            postID: doc.id,
+            title: doc.data().title,
+            imageURLs: doc.data().imageURLs,
+          }));
+
+          setUserPosts(postsData);
+        } catch (error) {
+          console.error("Error fetching user posts:", error);
+        }
+      };
+
+      fetchUserPosts();
+    }
+  }, [activeTab]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView style={styles.container}>
-        {/* Header Section */}
-        <View style={styles.header}>
-          {/* Name Centered at the Top */}
-          <Text style={styles.name}>Jennifer Doe</Text>
+      {/* Header Section */}
+      <View style={styles.header}>
+        {/* Name Centered at the Top */}
+        <Text style={styles.name}>Jennifer Doe</Text>
 
-          {/* Profile Image and Stats */}
-          <View style={styles.profileRow}>
-            <Image
-              style={styles.profileImage}
-              source={{
-                uri: "https://via.placeholder.com/150", // Replace with actual profile image URL
-              }}
-            />
-            <View style={styles.statsContainer}>
-              <View style={styles.stat}>
-                <Text style={styles.statNumber}>100</Text>
-                <Text style={styles.statLabel}>posts</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statNumber}>100</Text>
-                <Text style={styles.statLabel}>followers</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statNumber}>100</Text>
-                <Text style={styles.statLabel}>following</Text>
-              </View>
+        {/* Profile Image and Stats */}
+        <View style={styles.profileRow}>
+          <Image
+            style={styles.profileImage}
+            source={{
+              uri: "https://via.placeholder.com/150", // Replace with actual profile image URL
+            }}
+          />
+          <View style={styles.statsContainer}>
+            <View style={styles.stat}>
+              <Text style={styles.statNumber}>100</Text>
+              <Text style={styles.statLabel}>posts</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statNumber}>100</Text>
+              <Text style={styles.statLabel}>followers</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statNumber}>100</Text>
+              <Text style={styles.statLabel}>following</Text>
             </View>
           </View>
-
-          {/* Username, Bio, and Location */}
-          <View style={styles.infoSection}>
-            <Text style={styles.username}>@jendoelovestohike</Text>
-            <Text style={styles.bio}>Hiker, Biker, Love to Adventure</Text>
-            <Text style={styles.location}>📍 All Around</Text>
-          </View>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity style={styles.activeTab}>
-            <Text style={styles.tabText}>Lists</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.inactiveTab}>
-            <Text style={styles.tabText}>Posts</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.inactiveTab}>
-            <Text style={styles.tabText}>Badges</Text>
-          </TouchableOpacity>
+        {/* Username, Bio, and Location */}
+        <View style={styles.infoSection}>
+          <Text style={styles.username}>@jendoelovestohike</Text>
+          <Text style={styles.bio}>Hiker, Biker, Love to Adventure</Text>
+          <Text style={styles.location}>📍 All Around</Text>
         </View>
+      </View>
 
-        {/* Content Grid */}
+      {/* Tabs */}
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={activeTab === "Lists" ? styles.activeTab : styles.inactiveTab}
+          onPress={() => setActiveTab("Lists")}
+        >
+          <Text style={styles.tabText}>Lists</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={activeTab === "Posts" ? styles.activeTab : styles.inactiveTab}
+          onPress={() => setActiveTab("Posts")}
+        >
+          <Text style={styles.tabText}>Posts</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={activeTab === "Badges" ? styles.activeTab : styles.inactiveTab}
+          onPress={() => setActiveTab("Badges")}
+        >
+          <Text style={styles.tabText}>Badges</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      {activeTab === "Lists" && (
         <View style={styles.grid}>
           <View style={styles.gridItem}>
             <Image
@@ -85,7 +130,31 @@ const ProfilePage = () => {
               </View>
             ))}
         </View>
-      </ScrollView>
+      )}
+
+      {activeTab === "Posts" && (
+        <View style={styles.grid}>
+          {userPosts.map((item) => (
+            <View key={item.postID} style={styles.gridItem}>
+              {item.imageURLs && item.imageURLs.length > 0 ? (
+                <Image
+                  style={styles.gridImage}
+                  source={{ uri: item.imageURLs[0] }}
+                />
+              ) : (
+                <View style={styles.placeholderBox} />
+              )}
+              <Text style={styles.gridText}>{item.title}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {activeTab === "Badges" && (
+        <View style={styles.grid}>
+          <Text style={styles.gridText}>No badges yet.</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -174,13 +243,14 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around",
+    justifyContent: "center",
     padding: 10,
   },
   gridItem: {
     width: "30%",
     alignItems: "center",
     marginBottom: 15,
+    marginHorizontal: "1.5%",
   },
   gridImage: {
     width: 100,
