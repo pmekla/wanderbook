@@ -19,7 +19,17 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  updateDoc,
+  arrayUnion,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { db } from "../../firebaseConfig.js";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
@@ -29,6 +39,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as FileSystem from "expo-file-system";
 import MapView, { Marker, Region } from "react-native-maps";
 import { cloudinaryUpload } from "../../cloudinaryConfig";
+import { AUTH_KEYS } from "../../services/authService";
 
 type RootStackParamList = {
   HomePage: { refresh: number } | undefined;
@@ -49,7 +60,7 @@ export default function AddItemPage() {
   const [visibility, setVisibility] = useState("Private");
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [userID, setUserID] = useState("1"); // Placeholder for user ID
+  const [userID, setUserID] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [location, setLocation] = useState<{
     latitude: number;
@@ -63,6 +74,13 @@ export default function AddItemPage() {
   const [userLocation, setUserLocation] = useState<Region | null>(null);
   const mapRef = useRef<MapView>(null);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  type Post = {
+    postID: string;
+    title: string;
+    imageURLs: string[];
+  };
+
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -98,6 +116,41 @@ export default function AddItemPage() {
         alert("Sorry, we need camera roll permissions to upload images!");
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserID = async () => {
+      const id = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+      if (id) setUserID(id);
+    };
+    fetchUserID();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserPosts = async () => {
+      try {
+        const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID); // Get the actual user ID
+        if (!userID) {
+          console.error("User ID not found");
+          return;
+        }
+        const postsRef = collection(db, "posts");
+        const q = query(postsRef, where("userID", "==", userID));
+        const querySnapshot = await getDocs(q);
+
+        const postsData = querySnapshot.docs.map((doc) => ({
+          postID: doc.id,
+          title: doc.data().title,
+          imageURLs: doc.data().imageURLs || [], // Use Cloudinary URLs
+        }));
+
+        setUserPosts(postsData);
+      } catch (error) {
+        console.error("Error fetching user posts:", error);
+      }
+    };
+
+    fetchUserPosts();
   }, []);
 
   // Function to handle date selection
@@ -201,6 +254,11 @@ export default function AddItemPage() {
 
   const savePost = async () => {
     try {
+      const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+      if (!userID) {
+        alert("User not logged in");
+        return;
+      }
       // Validate required fields
       if (!name.trim()) {
         alert("Please enter a name for your adventure");
@@ -226,6 +284,12 @@ export default function AddItemPage() {
 
       const docRef = await addDoc(collection(db, "posts"), postData);
       console.log("Post added with ID:", docRef.id);
+
+      // Add postID to user's posts array
+      const userRef = doc(db, "users", userID);
+      await updateDoc(userRef, {
+        posts: arrayUnion(docRef.id),
+      });
 
       // Clear form data
       setImageUrls([]);
@@ -260,9 +324,7 @@ export default function AddItemPage() {
             value={name}
             onChangeText={setName}
           />
-          <TouchableOpacity onPress={() => navigation.navigate("MapViewPage")}>
-            <Text style={styles.icon}>📍</Text>
-          </TouchableOpacity>
+
           <TouchableOpacity onPress={openDatePicker}>
             <Text style={styles.icon}>📅</Text>
           </TouchableOpacity>
@@ -519,5 +581,17 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 8,
+  },
+  userPostsContainer: {
+    marginTop: 20,
+  },
+  userPostsHeader: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  userPostTitle: {
+    fontSize: 16,
+    marginBottom: 5,
   },
 });

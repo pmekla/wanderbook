@@ -4,7 +4,8 @@
     "username": "This is a post",
     "bio": "This is a post",
     "location": 5,
-    "userImage": "public",
-    "posts": ["234", "image2.jpg", "image3.jpg"]
+    "profilePicture": "public",
+    "posts": ["234", "image2.jpg", "image3.jpg"],
+    "friends": ["2", "3", "4"]
   }
 }

@@ -10,10 +10,12 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../firebaseConfig.js";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "../../firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AUTH_KEYS } from "../../services/authService";
 import ImageComponent from "../../components/ImageComponent";
+import PostViewer from "./PostViewer";
 
 // Update Post interface
 interface Post {
@@ -25,10 +27,14 @@ interface Post {
 const HomePage = () => {
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   const fetchPosts = async () => {
     try {
-      const postsSnapshot = await getDocs(collection(db, "posts"));
+      const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+      if (!userID) return;
+      const q = query(collection(db, "posts"), where("userID", "==", userID));
+      const postsSnapshot = await getDocs(q);
       const postsData = postsSnapshot.docs.map((doc) => ({
         postID: doc.id,
         title: doc.data().title,
@@ -78,15 +84,17 @@ const HomePage = () => {
           <Text style={styles.header}>home</Text>
 
           {/* Recent Lists */}
-          <Text style={styles.sectionTitle}>Recent Lists</Text>
+          <Text style={styles.sectionTitle}>Recent Posts</Text>
           <View style={styles.listContainer}>
             <FlatList
               data={recentPosts}
               horizontal
               keyExtractor={(item) => item.postID}
               renderItem={({ item }) => (
-                // Update the card rendering
-                <View style={styles.card}>
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => setSelectedPost(item)}
+                >
                   {item.imageURLs && item.imageURLs.length > 0 ? (
                     <Image
                       source={{ uri: item.imageURLs[0] }}
@@ -98,7 +106,7 @@ const HomePage = () => {
                     </View>
                   )}
                   <Text style={styles.cardTitle}>{item.title}</Text>
-                </View>
+                </TouchableOpacity>
               )}
             />
           </View>
@@ -119,6 +127,15 @@ const HomePage = () => {
           />
         </View>
       </ScrollView>
+
+      {/* Post Viewer Modal */}
+      {selectedPost && (
+        <PostViewer
+          visible={!!selectedPost}
+          onClose={() => setSelectedPost(null)}
+          post={selectedPost}
+        />
+      )}
     </SafeAreaView>
   );
 };
