@@ -8,41 +8,51 @@ import {
   SafeAreaView,
   StatusBar,
   FlatList,
+  RefreshControl,
+  ScrollView,
 } from "react-native";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../firebaseConfig.js";
+import ImageComponent from "../../components/ImageComponent";
 
+// Update Post type
 type Post = {
   postID: string;
   title: string;
-  imageURLs: string[];
+  imageURLs: string[]; // Array of Cloudinary URLs
 };
 
 const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("Lists");
   const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchUserPosts().then(() => setRefreshing(false));
+  }, []);
+
+  const fetchUserPosts = async () => {
+    try {
+      const userID = "1"; // Replace with actual user ID
+      const postsRef = collection(db, "posts");
+      const q = query(postsRef, where("userID", "==", userID));
+      const querySnapshot = await getDocs(q);
+
+      const postsData = querySnapshot.docs.map((doc) => ({
+        postID: doc.id,
+        title: doc.data().title,
+        imageURLs: doc.data().imageURLs || [], // Use Cloudinary URLs
+      }));
+
+      setUserPosts(postsData);
+    } catch (error) {
+      console.error("Error fetching user posts:", error);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === "Posts") {
-      const fetchUserPosts = async () => {
-        try {
-          const userID = "1"; // Replace with actual user ID
-          const postsRef = collection(db, "posts");
-          const q = query(postsRef, where("userID", "==", userID));
-          const querySnapshot = await getDocs(q);
-
-          const postsData = querySnapshot.docs.map((doc) => ({
-            postID: doc.id,
-            title: doc.data().title,
-            imageURLs: doc.data().imageURLs,
-          }));
-
-          setUserPosts(postsData);
-        } catch (error) {
-          console.error("Error fetching user posts:", error);
-        }
-      };
-
       fetchUserPosts();
     }
   }, [activeTab]);
@@ -50,111 +60,123 @@ const ProfilePage = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      {/* Header Section */}
-      <View style={styles.header}>
-        {/* Name Centered at the Top */}
-        <Text style={styles.name}>Jennifer Doe</Text>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Header Section */}
+        <View style={styles.header}>
+          {/* Name Centered at the Top */}
+          <Text style={styles.name}>Jennifer Doe</Text>
 
-        {/* Profile Image and Stats */}
-        <View style={styles.profileRow}>
-          <Image
-            style={styles.profileImage}
-            source={{
-              uri: "https://via.placeholder.com/150", // Replace with actual profile image URL
-            }}
-          />
-          <View style={styles.statsContainer}>
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>100</Text>
-              <Text style={styles.statLabel}>posts</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>100</Text>
-              <Text style={styles.statLabel}>followers</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statNumber}>100</Text>
-              <Text style={styles.statLabel}>following</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Username, Bio, and Location */}
-        <View style={styles.infoSection}>
-          <Text style={styles.username}>@jendoelovestohike</Text>
-          <Text style={styles.bio}>Hiker, Biker, Love to Adventure</Text>
-          <Text style={styles.location}>📍 All Around</Text>
-        </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={activeTab === "Lists" ? styles.activeTab : styles.inactiveTab}
-          onPress={() => setActiveTab("Lists")}
-        >
-          <Text style={styles.tabText}>Lists</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={activeTab === "Posts" ? styles.activeTab : styles.inactiveTab}
-          onPress={() => setActiveTab("Posts")}
-        >
-          <Text style={styles.tabText}>Posts</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={activeTab === "Badges" ? styles.activeTab : styles.inactiveTab}
-          onPress={() => setActiveTab("Badges")}
-        >
-          <Text style={styles.tabText}>Badges</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Content */}
-      {activeTab === "Lists" && (
-        <View style={styles.grid}>
-          <View style={styles.gridItem}>
+          {/* Profile Image and Stats */}
+          <View style={styles.profileRow}>
             <Image
-              style={styles.gridImage}
+              style={styles.profileImage}
               source={{
-                uri: "https://via.placeholder.com/100", // Replace with actual list image URL
+                uri: "https://via.placeholder.com/150", // Replace with actual profile image URL
               }}
             />
-            <Text style={styles.gridText}>Whitewater Rafting</Text>
+            <View style={styles.statsContainer}>
+              <View style={styles.stat}>
+                <Text style={styles.statNumber}>100</Text>
+                <Text style={styles.statLabel}>posts</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text style={styles.statNumber}>100</Text>
+                <Text style={styles.statLabel}>followers</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text style={styles.statNumber}>100</Text>
+                <Text style={styles.statLabel}>following</Text>
+              </View>
+            </View>
           </View>
-          {Array(8)
-            .fill(null)
-            .map((_, index) => (
-              <View key={index} style={styles.gridItem}>
-                <View style={styles.placeholderBox} />
-                <Text style={styles.gridText}>Placeholder</Text>
+
+          {/* Username, Bio, and Location */}
+          <View style={styles.infoSection}>
+            <Text style={styles.username}>@jendoelovestohike</Text>
+            <Text style={styles.bio}>Hiker, Biker, Love to Adventure</Text>
+            <Text style={styles.location}>📍 All Around</Text>
+          </View>
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={
+              activeTab === "Lists" ? styles.activeTab : styles.inactiveTab
+            }
+            onPress={() => setActiveTab("Lists")}
+          >
+            <Text style={styles.tabText}>Lists</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={
+              activeTab === "Posts" ? styles.activeTab : styles.inactiveTab
+            }
+            onPress={() => setActiveTab("Posts")}
+          >
+            <Text style={styles.tabText}>Posts</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={
+              activeTab === "Badges" ? styles.activeTab : styles.inactiveTab
+            }
+            onPress={() => setActiveTab("Badges")}
+          >
+            <Text style={styles.tabText}>Badges</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content */}
+        {activeTab === "Lists" && (
+          <View style={styles.grid}>
+            <View style={styles.gridItem}>
+              <Image
+                style={styles.gridImage}
+                source={{
+                  uri: "https://via.placeholder.com/100", // Replace with actual list image URL
+                }}
+              />
+              <Text style={styles.gridText}>Whitewater Rafting</Text>
+            </View>
+            {Array(8)
+              .fill(null)
+              .map((_, index) => (
+                <View key={index} style={styles.gridItem}>
+                  <View style={styles.placeholderBox} />
+                  <Text style={styles.gridText}>Placeholder</Text>
+                </View>
+              ))}
+          </View>
+        )}
+
+        {activeTab === "Posts" && (
+          <View style={styles.grid}>
+            {userPosts.map((item) => (
+              <View key={item.postID} style={styles.gridItem}>
+                {item.imageURLs && item.imageURLs.length > 0 ? (
+                  <Image
+                    source={{ uri: item.imageURLs[0] }}
+                    style={styles.gridImage}
+                  />
+                ) : (
+                  <View style={styles.placeholderBox} />
+                )}
+                <Text style={styles.gridText}>{item.title}</Text>
               </View>
             ))}
-        </View>
-      )}
+          </View>
+        )}
 
-      {activeTab === "Posts" && (
-        <View style={styles.grid}>
-          {userPosts.map((item) => (
-            <View key={item.postID} style={styles.gridItem}>
-              {item.imageURLs && item.imageURLs.length > 0 ? (
-                <Image
-                  style={styles.gridImage}
-                  source={{ uri: item.imageURLs[0] }}
-                />
-              ) : (
-                <View style={styles.placeholderBox} />
-              )}
-              <Text style={styles.gridText}>{item.title}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {activeTab === "Badges" && (
-        <View style={styles.grid}>
-          <Text style={styles.gridText}>No badges yet.</Text>
-        </View>
-      )}
+        {activeTab === "Badges" && (
+          <View style={styles.grid}>
+            <Text style={styles.gridText}>No badges yet.</Text>
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,51 +7,45 @@ import {
   FlatList,
   TouchableOpacity,
   SafeAreaView,
+  ScrollView,
+  RefreshControl,
 } from "react-native";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebaseConfig.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ImageComponent from "../../components/ImageComponent";
 
+// Update Post interface
 interface Post {
   postID: string;
   title: string;
-  imageIDs?: string[];
+  imageURLs: string[]; // Array of Cloudinary URLs
 }
 
 const HomePage = () => {
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
-  const [imageData, setImageData] = useState<{ [key: string]: string }>({});
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchPosts = async () => {
+    try {
+      const postsSnapshot = await getDocs(collection(db, "posts"));
+      const postsData = postsSnapshot.docs.map((doc) => ({
+        postID: doc.id,
+        title: doc.data().title,
+        imageURLs: doc.data().imageURLs || [], // Use Cloudinary URLs
+      }));
+      setRecentPosts(postsData);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPosts().then(() => setRefreshing(false));
+  }, []);
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const postsSnapshot = await getDocs(collection(db, "posts"));
-        const postsData = postsSnapshot.docs.map((doc) => ({
-          postID: doc.id,
-          title: doc.data().title,
-          imageIDs: doc.data().imageIDs,
-        }));
-        setRecentPosts(postsData);
-
-        // Fetch images from AsyncStorage
-        const images: { [key: string]: string } = {};
-        await Promise.all(
-          postsData.map(async (post) => {
-            if (post.imageIDs && post.imageIDs.length > 0) {
-              const imageID = post.imageIDs[0]; // Use first image ID
-              const base64Data = await AsyncStorage.getItem(imageID);
-              if (base64Data) {
-                images[post.postID] = base64Data;
-              }
-            }
-          })
-        );
-        setImageData(images);
-      } catch (error) {
-        console.error("Error fetching posts:", error);
-      }
-    };
-
     fetchPosts();
   }, []);
 
@@ -75,51 +69,56 @@ const HomePage = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.header}>home</Text>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.container}>
+          <Text style={styles.header}>home</Text>
 
-        {/* Recent Lists */}
-        <Text style={styles.sectionTitle}>Recent Lists</Text>
-        <View style={styles.listContainer}>
+          {/* Recent Lists */}
+          <Text style={styles.sectionTitle}>Recent Lists</Text>
+          <View style={styles.listContainer}>
+            <FlatList
+              data={recentPosts}
+              horizontal
+              keyExtractor={(item) => item.postID}
+              renderItem={({ item }) => (
+                // Update the card rendering
+                <View style={styles.card}>
+                  {item.imageURLs && item.imageURLs.length > 0 ? (
+                    <Image
+                      source={{ uri: item.imageURLs[0] }}
+                      style={{ width: 150, height: 100 }}
+                    />
+                  ) : (
+                    <View style={styles.noImagePlaceholder}>
+                      <Text>No Image</Text>
+                    </View>
+                  )}
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                </View>
+              )}
+            />
+          </View>
+
+          {/* Top Spots */}
+          <Text style={styles.sectionTitle}>Top Spots</Text>
           <FlatList
-            data={recentPosts}
+            data={topSpots}
             horizontal
-            keyExtractor={(item) => item.postID}
+            keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
-              <View style={styles.card}>
-                {imageData[item.postID] ? (
-                  <Image
-                    source={{
-                      uri: `data:image/jpeg;base64,${imageData[item.postID]}`,
-                    }}
-                    style={{ width: "100%", height: 100, borderRadius: 8 }}
-                  />
-                ) : (
-                  <View style={styles.noImagePlaceholder}>
-                    <Text>No Image</Text>
-                  </View>
-                )}
-                <Text style={styles.cardTitle}>{item.title}</Text>
-              </View>
+              <TouchableOpacity style={styles.spotCard}>
+                <Image source={{ uri: item.image }} style={styles.spotImage} />
+                <Text style={styles.spotTitle}>{item.title}</Text>
+                <Text style={styles.spotDetails}>{item.details}</Text>
+              </TouchableOpacity>
             )}
           />
         </View>
-
-        {/* Top Spots */}
-        <Text style={styles.sectionTitle}>Top Spots</Text>
-        <FlatList
-          data={topSpots}
-          horizontal
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.spotCard}>
-              <Image source={{ uri: item.image }} style={styles.spotImage} />
-              <Text style={styles.spotTitle}>{item.title}</Text>
-              <Text style={styles.spotDetails}>{item.details}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
