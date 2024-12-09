@@ -8,15 +8,27 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { FAB, IconButton } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { useFonts, Kalam_400Regular } from "@expo-google-fonts/kalam";
-import AppLoading from "expo-app-loading";
+import { useFonts } from "expo-font"; // Add this import
+import { Kalam_400Regular } from "@expo-google-fonts/kalam";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { v4 as uuidv4 } from "uuid";
+import { AUTH_KEYS, getCurrentUser } from "../../services/authService";
+import {
+  collection,
+  doc,
+  updateDoc,
+  arrayUnion,
+  getDoc,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import { cloudinaryUpload } from "../../cloudinaryConfig";
 
 const BucketListPage = () => {
   const [bucketLists, setBucketLists] = useState<
@@ -33,6 +45,7 @@ const BucketListPage = () => {
   const [selectedTab, setSelectedTab] = useState("inProgress");
   const [images, setImages] = useState<string[]>([]);
   const [imageData, setImageData] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Kalam_400Regular,
@@ -40,37 +53,78 @@ const BucketListPage = () => {
 
   useEffect(() => {
     (async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         alert("Sorry, we need camera roll permissions to upload images!");
       }
     })();
   }, []);
 
+  useEffect(() => {
+    const fetchBucketListItems = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          setBucketLists(currentUser.bucketListItems);
+        }
+      } catch (error) {
+        console.error("Error fetching bucket list items:", error);
+      }
+    };
+
+    fetchBucketListItems();
+  }, []);
+
   if (!fontsLoaded) {
-    return <AppLoading />;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
   }
 
-  const createBucketList = () => {
+  const createBucketList = async () => {
     if (newListName.trim() === "") {
       alert("Please enter a name for your bucket list.");
       return;
     }
-    
+
     const newBucketList = {
       id: Date.now().toString(),
       name: newListName,
       privacy,
       completed: false,
-      images: imageData.length > 0 ? imageData : undefined,
+      images: imageData.length > 0 ? imageData : [],
     };
-    
+
     setBucketLists((prev) => [...prev, newBucketList]);
-    
+
     setNewListName("");
     setImages([]);
     setImageData([]);
-  }
+
+    try {
+      const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+      if (userID) {
+        const userRef = doc(db, "users", userID);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const updatedBucketListItems = [
+            ...(userData.bucketListItems || []),
+            newBucketList,
+          ];
+          console.log(updatedBucketListItems);
+          await updateDoc(userRef, {
+            bucketListItems: updatedBucketListItems,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error adding bucket list item:", error);
+    }
+  };
 
   const toggleComplete = (id: string) => {
     setBucketLists((prev) =>
@@ -80,17 +134,60 @@ const BucketListPage = () => {
     );
   };
 
+  const deleteBucketListItem = async (id: string) => {
+    try {
+      const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+      if (userID) {
+        const userRef = doc(db, "users", userID);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const updatedBucketListItems = userData.bucketListItems.filter(
+            (item: { id: string }) => item.id !== id
+          );
+          await updateDoc(userRef, {
+            bucketListItems: updatedBucketListItems,
+          });
+          setBucketLists(updatedBucketListItems);
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting bucket list item:", error);
+    }
+  };
+
+  const confirmDeleteBucketListItem = (id: string) => {
+    Alert.alert(
+      "Delete Bucket List",
+      "Are you sure you want to delete this bucket list item?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteBucketListItem(id),
+        },
+      ]
+    );
+  };
+
   const renderBucketLists = () => {
     const filteredLists = bucketLists.filter(
       (list) => list.completed === (selectedTab === "completed")
     );
-    
+
     return (
       <FlatList
         data={filteredLists}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.bucketListItem}>
+          <TouchableOpacity
+            style={styles.bucketListItem}
+            onLongPress={() => confirmDeleteBucketListItem(item.id)}
+          >
             <TouchableOpacity onPress={() => toggleComplete(item.id)}>
               <View style={styles.checkbox}>
                 {item.completed && <View style={styles.checked} />}
@@ -102,16 +199,16 @@ const BucketListPage = () => {
             </View>
             {item.images && (
               <View style={styles.miniImageContainer}>
-                {item.images.map((base64Data, index) => (
+                {item.images.map((url, index) => (
                   <Image
                     key={index}
-                    source={{ uri: `data:image/jpeg;base64,${base64Data}` }}
+                    source={{ uri: url }}
                     style={styles.miniImage}
                   />
                 ))}
               </View>
             )}
-          </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={() => (
           <Text style={styles.emptyText}>
@@ -133,15 +230,15 @@ const BucketListPage = () => {
     });
 
     if (!result.canceled && result.assets[0].uri) {
-      const imageID = `image_${uuidv4()}`;
+      setIsUploading(true);
       const imageUri = result.assets[0].uri;
-      const base64Data = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      const cloudinaryUrl = await cloudinaryUpload(imageUri);
 
-      await AsyncStorage.setItem(imageID, base64Data);
-      setImages([...images, imageID]);
-      setImageData([...imageData, base64Data]);
+      if (cloudinaryUrl) {
+        setImages([...images, cloudinaryUrl]);
+        setImageData([...imageData, cloudinaryUrl]);
+      }
+      setIsUploading(false);
     }
   };
 
@@ -178,7 +275,9 @@ const BucketListPage = () => {
                 privacy === "private" && styles.activeCircle,
               ]}
             />
-            <Text style={[styles.radioText, { fontFamily: "Kalam_400Regular" }]}>
+            <Text
+              style={[styles.radioText, { fontFamily: "Kalam_400Regular" }]}
+            >
               Private
             </Text>
           </TouchableOpacity>
@@ -192,7 +291,9 @@ const BucketListPage = () => {
                 privacy === "friends" && styles.activeCircle,
               ]}
             />
-            <Text style={[styles.radioText, { fontFamily: "Kalam_400Regular" }]}>
+            <Text
+              style={[styles.radioText, { fontFamily: "Kalam_400Regular" }]}
+            >
               Friends
             </Text>
           </TouchableOpacity>
@@ -206,22 +307,24 @@ const BucketListPage = () => {
                 privacy === "public" && styles.activeCircle,
               ]}
             />
-            <Text style={[styles.radioText, { fontFamily: "Kalam_400Regular" }]}>
+            <Text
+              style={[styles.radioText, { fontFamily: "Kalam_400Regular" }]}
+            >
               Public
             </Text>
           </TouchableOpacity>
         </View>
         <View style={styles.imageContainer}>
-          {imageData.map((base64Data, index) => (
+          {imageData.map((url, index) => (
             <TouchableOpacity
               key={index}
               style={styles.imagePlaceholder}
               onPress={images.length < 3 ? pickImage : undefined}
               onLongPress={() => handleRemoveImage(index)}
             >
-              {base64Data ? (
+              {url ? (
                 <Image
-                  source={{ uri: `data:image/jpeg;base64,${base64Data}` }}
+                  source={{ uri: url }}
                   style={{ width: "100%", height: "100%", borderRadius: 8 }}
                 />
               ) : (
@@ -230,7 +333,10 @@ const BucketListPage = () => {
             </TouchableOpacity>
           ))}
           {images.length < 3 && (
-            <TouchableOpacity style={styles.imagePlaceholder} onPress={pickImage}>
+            <TouchableOpacity
+              style={styles.imagePlaceholder}
+              onPress={pickImage}
+            >
               <Ionicons name="add" size={40} color="#ccc" />
             </TouchableOpacity>
           )}
@@ -260,6 +366,11 @@ const BucketListPage = () => {
           </TouchableOpacity>
         </View>
         {renderBucketLists()}
+        {isUploading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#0000ff" />
+          </View>
+        )}
         <FAB icon="plus" style={styles.fab} onPress={createBucketList} />
       </View>
     </SafeAreaView>
@@ -382,7 +493,7 @@ const styles = StyleSheet.create({
   },
   bucketListTextContainer: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: "column",
   },
   bucketListText: {
     fontSize: 16,
@@ -402,7 +513,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   miniImageContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginLeft: 10,
   },
   miniImage: {
@@ -411,6 +522,22 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 5,
   },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 });
 
 export default BucketListPage;
+

@@ -46,6 +46,12 @@ type Post = {
   postID: string;
   title: string;
   imageURLs: string[]; // Array of Cloudinary URLs
+  description?: string;
+  rating?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 };
 
 // Update User type for FriendRequests
@@ -75,6 +81,16 @@ const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [friendsData, setFriendsData] = useState<User[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [bucketListItems, setBucketListItems] = useState<
+    {
+      id: string;
+      name: string;
+      privacy: string;
+      completed: boolean;
+      images?: string[];
+    }[]
+  >([]);
+  const [incomingRequestsData, setIncomingRequestsData] = useState<User[]>([]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -96,6 +112,9 @@ const ProfilePage = () => {
         postID: doc.id,
         title: doc.data().title,
         imageURLs: doc.data().imageURLs || [], // Use Cloudinary URLs
+        description: doc.data().description,
+        rating: doc.data().rating,
+        location: doc.data().location,
       }));
 
       setUserPosts(postsData);
@@ -114,6 +133,7 @@ const ProfilePage = () => {
         setProfilePicture(currentUser.profilePicture || "");
         setFriends(currentUser.friends || []);
         setIncomingRequests(currentUser.incomingRequests || []);
+        setBucketListItems(currentUser.bucketListItems || []);
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -296,11 +316,37 @@ const ProfilePage = () => {
     }
   };
 
-  useEffect(() => {
-    if (friendsModalVisible && friends.length > 0) {
-      fetchFriendsData();
+  const fetchIncomingRequestsData = async () => {
+    try {
+      const requestsPromises = incomingRequests.map(async (requesterId) => {
+        const userDoc = await getDoc(doc(db, "users", requesterId));
+        if (userDoc.exists()) {
+          return { ...userDoc.data(), userID: userDoc.id } as User;
+        }
+        return null;
+      });
+
+      const requestsResults = await Promise.all(requestsPromises);
+      setIncomingRequestsData(
+        requestsResults.filter(
+          (requester): requester is User => requester !== null
+        )
+      );
+    } catch (error) {
+      console.error("Error fetching incoming requests data:", error);
     }
-  }, [friendsModalVisible, friends]);
+  };
+
+  useEffect(() => {
+    if (friendsModalVisible) {
+      if (friends.length > 0) {
+        fetchFriendsData();
+      }
+      if (incomingRequests.length > 0) {
+        fetchIncomingRequestsData();
+      }
+    }
+  }, [friendsModalVisible, friends, incomingRequests]);
 
   const handleLogout = async () => {
     try {
@@ -309,6 +355,115 @@ const ProfilePage = () => {
     } catch (error) {
       console.error("Logout error:", error);
       Alert.alert("Error logging out");
+    }
+  };
+
+  const confirmDeleteBucketListItem = (id: string) => {
+    Alert.alert(
+      "Delete Bucket List",
+      "Are you sure you want to delete this bucket list item?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteBucketListItem(id),
+        },
+      ]
+    );
+  };
+
+  const deleteBucketListItem = async (id: string) => {
+    try {
+      const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+      if (userID) {
+        const userRef = doc(db, "users", userID);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const updatedBucketListItems = userData.bucketListItems.filter(
+            (item: { id: string }) => item.id !== id
+          );
+          await updateDoc(userRef, {
+            bucketListItems: updatedBucketListItems,
+          });
+          setBucketListItems(updatedBucketListItems);
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting bucket list item:", error);
+    }
+  };
+
+  // Add this function after other function declarations
+  const checkFriendStatus = (targetUserID: string) => {
+    // Check if already friends
+    if (friends.includes(targetUserID)) {
+      return "friends";
+    }
+    // Check if request is pending
+    if (incomingRequests.includes(targetUserID)) {
+      return "pending";
+    }
+    return "none";
+  };
+
+  // Add these new functions after other function declarations
+  const confirmDeleteFriend = (friendID: string, friendName: string) => {
+    Alert.alert(
+      "Remove Friend",
+      `Are you sure you want to remove ${friendName} from your friends?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => deleteFriend(friendID),
+        },
+      ]
+    );
+  };
+
+  const deleteFriend = async (friendID: string) => {
+    try {
+      const currentUserID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+      if (currentUserID) {
+        const currentUserRef = doc(db, "users", currentUserID);
+        const friendRef = doc(db, "users", friendID);
+
+        // Remove friend from current user's friends list
+        await updateDoc(currentUserRef, {
+          friends: friends.filter((id) => id !== friendID),
+        });
+
+        // Remove current user from friend's friends list
+        const friendDoc = await getDoc(friendRef);
+        if (friendDoc.exists()) {
+          const friendData = friendDoc.data();
+          await updateDoc(friendRef, {
+            friends: (friendData.friends || []).filter(
+              (id: string) => id !== currentUserID
+            ),
+          });
+        }
+
+        // Update local state
+        setFriends(friends.filter((id) => id !== friendID));
+        setFriendsData(
+          friendsData.filter((friend) => friend.userID !== friendID)
+        );
+
+        Alert.alert("Success", "Friend removed successfully");
+      }
+    } catch (error) {
+      console.error("Error deleting friend:", error);
+      Alert.alert("Error", "Failed to remove friend");
     }
   };
 
@@ -341,10 +496,13 @@ const ProfilePage = () => {
               }}
             />
             <View style={styles.statsContainer}>
-              <View style={styles.stat}>
+              <TouchableOpacity
+                style={styles.stat}
+                onPress={() => setActiveTab("Posts")}
+              >
                 <Text style={styles.statNumber}>{userPosts.length}</Text>
                 <Text style={styles.statLabel}>posts</Text>
-              </View>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.stat}
                 onPress={() => setFriendsModalVisible(true)}
@@ -394,45 +552,61 @@ const ProfilePage = () => {
         {/* Content */}
         {activeTab === "Lists" && (
           <View style={styles.grid}>
-            <View style={styles.gridItem}>
-              <Image
-                style={styles.gridImage}
-                source={{
-                  uri: "https://via.placeholder.com/100", // Replace with actual list image URL
-                }}
-              />
-              <Text style={styles.gridText}>Whitewater Rafting</Text>
-            </View>
-            {Array(8)
-              .fill(null)
-              .map((_, index) => (
-                <View key={index} style={styles.gridItem}>
-                  <View style={styles.placeholderBox} />
-                  <Text style={styles.gridText}>Placeholder</Text>
-                </View>
-              ))}
+            {bucketListItems.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>
+                  No lists to see here! Try creating one.
+                </Text>
+              </View>
+            ) : (
+              bucketListItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.gridItem}
+                  onLongPress={() => confirmDeleteBucketListItem(item.id)}
+                >
+                  {item.images && item.images.length > 0 ? (
+                    <Image
+                      source={{ uri: item.images[0] }}
+                      style={styles.gridImage}
+                    />
+                  ) : (
+                    <View style={styles.placeholderBox} />
+                  )}
+                  <Text style={styles.gridText}>{item.name}</Text>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         )}
 
         {activeTab === "Posts" && (
           <View style={styles.grid}>
-            {userPosts.map((item) => (
-              <TouchableOpacity
-                key={item.postID}
-                style={styles.gridItem}
-                onPress={() => setSelectedPost(item)}
-              >
-                {item.imageURLs && item.imageURLs.length > 0 ? (
-                  <Image
-                    source={{ uri: item.imageURLs[0] }}
-                    style={styles.gridImage}
-                  />
-                ) : (
-                  <View style={styles.placeholderBox} />
-                )}
-                <Text style={styles.gridText}>{item.title}</Text>
-              </TouchableOpacity>
-            ))}
+            {userPosts.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>
+                  No posts to see here! Try creating one.
+                </Text>
+              </View>
+            ) : (
+              userPosts.map((item) => (
+                <TouchableOpacity
+                  key={item.postID}
+                  style={styles.gridItem}
+                  onPress={() => setSelectedPost(item)}
+                >
+                  {item.imageURLs && item.imageURLs.length > 0 ? (
+                    <Image
+                      source={{ uri: item.imageURLs[0] }}
+                      style={styles.gridImage}
+                    />
+                  ) : (
+                    <View style={styles.placeholderBox} />
+                  )}
+                  <Text style={styles.gridText}>{item.title}</Text>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         )}
 
@@ -572,38 +746,54 @@ const ProfilePage = () => {
                   </TouchableOpacity>
 
                   {/* Search Results */}
-                  {searchResults.map((user) => (
-                    <View key={user.userID} style={styles.friendItem}>
-                      <View style={styles.friendInfo}>
-                        <Image
-                          source={{
-                            uri:
-                              user.profilePicture ||
-                              "https://via.placeholder.com/50",
-                          }}
-                          style={styles.friendAvatar}
-                        />
-                        <Text>{user.username}</Text>
+                  {searchResults.map((user) => {
+                    const friendStatus = checkFriendStatus(user.userID);
+                    return (
+                      <View key={user.userID} style={styles.friendItem}>
+                        <View style={styles.friendInfo}>
+                          <Image
+                            source={{
+                              uri:
+                                user.profilePicture ||
+                                "https://via.placeholder.com/50",
+                            }}
+                            style={styles.friendAvatar}
+                          />
+                          <Text>{user.username}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.addButton,
+                            (isLoading || friendStatus !== "none") &&
+                              styles.disabledButton,
+                          ]}
+                          onPress={() => sendFriendRequest(user.userID)}
+                          disabled={isLoading || friendStatus !== "none"}
+                        >
+                          <Text style={styles.addButtonText}>
+                            {isLoading
+                              ? "..."
+                              : friendStatus === "friends"
+                              ? "Friends"
+                              : friendStatus === "pending"
+                              ? "Pending"
+                              : "Add"}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
-                      <TouchableOpacity
-                        style={[
-                          styles.addButton,
-                          isLoading && styles.disabledButton,
-                        ]}
-                        onPress={() => sendFriendRequest(user.userID)}
-                        disabled={isLoading}
-                      >
-                        <Text style={styles.addButtonText}>
-                          {isLoading ? "..." : "Add"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+                    );
+                  })}
 
                   {/* Friends List */}
                   <Text style={styles.sectionHeader}>Your Friends</Text>
                   {friendsData.map((friend) => (
-                    <View key={friend.userID} style={styles.friendItem}>
+                    <TouchableOpacity
+                      key={friend.userID}
+                      style={styles.friendItem}
+                      onLongPress={() =>
+                        confirmDeleteFriend(friend.userID, friend.username)
+                      }
+                    >
                       <View style={styles.friendInfo}>
                         <Image
                           source={{
@@ -615,17 +805,27 @@ const ProfilePage = () => {
                         />
                         <Text>{friend.username}</Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
 
                   {/* Incoming Friend Requests */}
                   <Text style={styles.sectionHeader}>Incoming Requests</Text>
-                  {incomingRequests.map((requesterID) => (
-                    <View key={requesterID} style={styles.friendItem}>
-                      <Text>{requesterID}</Text>
+                  {incomingRequestsData.map((requester) => (
+                    <View key={requester.userID} style={styles.friendItem}>
+                      <View style={styles.friendInfo}>
+                        <Image
+                          source={{
+                            uri:
+                              requester.profilePicture ||
+                              "https://via.placeholder.com/50",
+                          }}
+                          style={styles.friendAvatar}
+                        />
+                        <Text>{requester.username}</Text>
+                      </View>
                       <TouchableOpacity
                         style={styles.acceptButton}
-                        onPress={() => acceptFriendRequest(requesterID)}
+                        onPress={() => acceptFriendRequest(requester.userID)}
                       >
                         <Text style={styles.acceptButtonText}>Accept</Text>
                       </TouchableOpacity>
@@ -680,17 +880,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     flex: 1,
+    marginLeft: 10, // Adjusted spacing
   },
   stat: {
+    alignItems: "center",
+    marginHorizontal: 30, // Adjusted spacing
+  },
+  infoSection: {
+    marginTop: 15,
     alignItems: "center",
   },
   statNumber: {
     fontSize: 18,
     fontWeight: "bold",
-  },
-  infoSection: {
-    marginTop: 15,
-    alignItems: "center",
   },
   statLabel: {
     fontSize: 14,
@@ -874,6 +1076,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
   },
   addButtonText: {
     color: "#fff",
@@ -908,6 +1112,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    width: "100%",
+    marginTop: 20,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
   },
 });
 

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ImageBackground,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Font from "expo-font";
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const loadFonts = async () => {
     await Font.loadAsync({
@@ -40,6 +42,7 @@ export default function LoginPage() {
   }
 
   const handleLogin = async () => {
+    setIsLoading(true);
     try {
       const user = await loginUser(username, password);
       if (user) {
@@ -50,6 +53,8 @@ export default function LoginPage() {
     } catch (error) {
       console.error("Login error:", error);
       Alert.alert("An error occurred during login. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -76,8 +81,16 @@ export default function LoginPage() {
             secureTextEntry
           />
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.signInButton} onPress={handleLogin}>
-              <Text style={styles.buttonText}>Sign in</Text>
+            <TouchableOpacity
+              style={styles.signInButton}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.buttonText}>Sign in</Text>
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.registerButton}

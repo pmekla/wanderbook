@@ -15,6 +15,12 @@ export default function RootLayout() {
           headerShown: false, // Hide headers for the tab screens
         }}
       />
+      <Stack.Screen
+        name="RegisterPage" // Load the Tabs navigator for the rest of the app
+        options={{
+          headerShown: false, // Hide headers for the tab screens
+        }}
+      />
     </Stack>
   );
 }

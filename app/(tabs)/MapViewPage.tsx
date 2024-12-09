@@ -13,6 +13,13 @@ import * as Location from "expo-location";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebaseConfig.js";
 import { Ionicons } from "@expo/vector-icons"; // Add this import
+import { getCurrentUserID } from "../../services/authService";
+import PostViewer from "./PostViewer"; // Add this import
+
+// Add this helper function before the MapViewPage component
+const generateRandomCoordinate = (center: number, range: number) => {
+  return center + (Math.random() - 0.5) * range;
+};
 
 export default function MapViewPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,6 +35,9 @@ export default function MapViewPage() {
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<Region | null>(null);
   const [visitedLocations, setVisitedLocations] = useState<any[]>([]);
+  const [topLocations, setTopLocations] = useState<any[][]>([[], [], [], []]);
+  const [postViewerVisible, setPostViewerVisible] = useState(false); // Add this line
+  const [selectedPost, setSelectedPost] = useState(null); // Add this line
 
   useEffect(() => {
     (async () => {
@@ -52,12 +62,17 @@ export default function MapViewPage() {
 
   const fetchAllVisitedLocations = async () => {
     try {
-      const postsQuery = query(collection(db, "posts"));
+      const userID = await getCurrentUserID();
+      if (!userID) return;
+
+      const postsQuery = query(
+        collection(db, "posts"),
+        where("userID", "==", userID)
+      );
       const querySnapshot = await getDocs(postsQuery);
       const locations = querySnapshot.docs
         .map((doc) => {
           const data = doc.data();
-          // Make sure we're accessing the correct path to coordinates
           const lat = data.location?.latitude || data.latitude;
           const lng = data.location?.longitude || data.longitude;
 
@@ -67,9 +82,11 @@ export default function MapViewPage() {
             latitude: typeof lat === "number" ? lat : parseFloat(lat),
             longitude: typeof lng === "number" ? lng : parseFloat(lng),
             description: data.description || "",
+            category: data.category || "Other",
+            imageURLs: data.imageURLs || [], // Add this line
           };
         })
-        .filter((loc) => !isNaN(loc.latitude) && !isNaN(loc.longitude)); // Better validation
+        .filter((loc) => !isNaN(loc.latitude) && !isNaN(loc.longitude));
 
       console.log("Processed visited locations:", locations);
       setVisitedLocations(locations);
@@ -106,41 +123,24 @@ export default function MapViewPage() {
   const fetchLocationsByCategory = async (category: string) => {
     setSelectedCategory(category);
     try {
-      let locationQuery;
       if (category === "Visited") {
-        // Fetch visited locations from your posts collection
-        locationQuery = query(collection(db, "posts"));
+        const locationQuery = query(collection(db, "posts"));
+        const querySnapshot = await getDocs(locationQuery);
+        const locations = querySnapshot.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+          title: "Visited Location",
+        }));
+        setMarkers(locations);
       } else {
-        // Here you would typically query a Places API for other categories
-        // For demo, we'll just show some dummy data
-        const dummyLocations = [
-          {
-            latitude: region.latitude + 0.01,
-            longitude: region.longitude + 0.01,
-            title: `${category} 1`,
-          },
-          {
-            latitude: region.latitude - 0.01,
-            longitude: region.longitude - 0.01,
-            title: `${category} 2`,
-          },
-          {
-            latitude: region.latitude,
-            longitude: region.longitude + 0.02,
-            title: `${category} 3`,
-          },
-        ];
+        // Generate random locations within ~2km range
+        const dummyLocations = Array.from({ length: 3 }, (_, index) => ({
+          latitude: generateRandomCoordinate(region.latitude, 0.02),
+          longitude: generateRandomCoordinate(region.longitude, 0.02),
+          title: `${category} ${index + 1}`,
+        }));
         setMarkers(dummyLocations);
-        return;
       }
-
-      const querySnapshot = await getDocs(locationQuery);
-      const locations = querySnapshot.docs.map((doc) => ({
-        ...doc.data(),
-        id: doc.id,
-        title: "Visited Location",
-      }));
-      setMarkers(locations);
     } catch (error) {
       console.error("Error fetching locations:", error);
       Alert.alert("Error", "Failed to fetch locations");
@@ -175,6 +175,12 @@ export default function MapViewPage() {
     mapRef.current?.animateToRegion(newRegion);
   };
 
+  const handleMarkerLongPress = (post: any) => {
+    // Add this function
+    setSelectedPost(post);
+    setPostViewerVisible(true);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -200,37 +206,40 @@ export default function MapViewPage() {
             />
           )}
 
-          {visitedLocations.map((location, index) => (
-            <Marker
-              key={`visited-${location.id || index}`}
-              coordinate={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-              }}
-              pinColor="green"
-            >
-              <Callout>
-                <Text>{location.title}</Text>
-                {location.description && <Text>{location.description}</Text>}
-              </Callout>
-            </Marker>
-          ))}
+          {selectedCategory === "Visited" &&
+            visitedLocations.map((location, index) => (
+              <Marker
+                key={`visited-${location.id || index}`}
+                coordinate={{
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                }}
+                pinColor="green"
+                onPress={() => handleMarkerLongPress(location)} // Add this line
+              >
+                <Callout>
+                  <Text>{location.title}</Text>
+                  {location.description && <Text>{location.description}</Text>}
+                </Callout>
+              </Marker>
+            ))}
 
-          {markers.map((marker, index) => (
-            <Marker
-              key={`category-${index}`}
-              coordinate={{
-                latitude: marker.latitude,
-                longitude: marker.longitude,
-              }}
-              title={marker.title}
-              pinColor={selectedCategory === "Visited" ? "green" : "yellow"}
-            >
-              <Callout>
-                <Text>{marker.title}</Text>
-              </Callout>
-            </Marker>
-          ))}
+          {selectedCategory !== "Visited" &&
+            markers.map((marker, index) => (
+              <Marker
+                key={`category-${index}`}
+                coordinate={{
+                  latitude: marker.latitude,
+                  longitude: marker.longitude,
+                }}
+                title={marker.title}
+                pinColor="yellow"
+              >
+                <Callout>
+                  <Text>{marker.title}</Text>
+                </Callout>
+              </Marker>
+            ))}
 
           {selectedLocation && (
             <Marker
@@ -274,13 +283,14 @@ export default function MapViewPage() {
             )
           )}
         </View>
-
-        <View style={styles.thumbnailContainer}>
-          <View style={styles.thumbnailBox} />
-          <View style={styles.thumbnailBox} />
-          <View style={styles.thumbnailBox} />
-        </View>
       </SafeAreaView>
+      {selectedPost && (
+        <PostViewer // Add this block
+          visible={postViewerVisible}
+          onClose={() => setPostViewerVisible(false)}
+          post={selectedPost}
+        />
+      )}
     </View>
   );
 }
@@ -393,5 +403,9 @@ const styles = StyleSheet.create({
     marginVertical: 5,
     borderWidth: 1,
     borderColor: "#ddd",
+  },
+  thumbnailText: {
+    fontSize: 12,
+    color: "#333",
   },
 });

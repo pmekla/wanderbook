@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ScrollView,
+  ActivityIndicator, // Add this import
 } from "react-native";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -74,6 +75,7 @@ export default function AddItemPage() {
   const [userLocation, setUserLocation] = useState<Region | null>(null);
   const mapRef = useRef<MapView>(null);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false); // Add this line
   type Post = {
     postID: string;
     title: string;
@@ -195,6 +197,7 @@ export default function AddItemPage() {
       console.log("Image picker result:", result);
 
       if (!result.canceled && result.assets[0].uri) {
+        setIsUploading(true); // Add this line
         const imageUri = result.assets[0].uri;
         console.log("Selected image URI:", imageUri);
 
@@ -216,9 +219,11 @@ export default function AddItemPage() {
             return [...prev, imageUri];
           });
         }
+        setIsUploading(false); // Add this line
       }
     } catch (error) {
       console.error("Error in pickImage:", error);
+      setIsUploading(false); // Ensure uploading state is reset on error
     }
   };
 
@@ -341,7 +346,6 @@ export default function AddItemPage() {
                   Adventure Date: {date.toDateString()}
                 </Text>
               )}
-
               {/* Date Picker */}
               {showDatePicker && (
                 <DateTimePicker
@@ -351,7 +355,6 @@ export default function AddItemPage() {
                   onChange={handleDateChange}
                 />
               )}
-
               {/* Add Map View */}
               <View style={styles.mapContainer}>
                 <MapView
@@ -379,7 +382,6 @@ export default function AddItemPage() {
                   )}
                 </MapView>
               </View>
-
               {/* Image Upload Section */}
               <View style={styles.imageContainer}>
                 {imageData.map((uri, index) => (
@@ -404,7 +406,6 @@ export default function AddItemPage() {
                   </TouchableOpacity>
                 )}
               </View>
-
               {/* Description Input */}
               <TextInput
                 style={styles.textArea}
@@ -413,7 +414,6 @@ export default function AddItemPage() {
                 value={description}
                 onChangeText={setDescription}
               />
-
               {/* Rating Section */}
               <View style={styles.ratingContainer}>
                 {[...Array(5)].map((_, index) => (
@@ -429,7 +429,6 @@ export default function AddItemPage() {
                   </TouchableOpacity>
                 ))}
               </View>
-
               {/* Visibility Options */}
               <View style={styles.visibilityContainer}>
                 {["Private", "Friends", "Public"].map((option) => (
@@ -451,11 +450,15 @@ export default function AddItemPage() {
                   </TouchableOpacity>
                 ))}
               </View>
-
               {/* Save Button */}
               <TouchableOpacity style={styles.saveButton} onPress={savePost}>
                 <Text style={styles.saveButtonText}>POST ADVENTURE 🏔️ </Text>
               </TouchableOpacity>
+              {isUploading && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator size="large" color="#0000ff" />
+                </View>
+              )}
             </View>
           </TouchableWithoutFeedback>
         </ScrollView>
@@ -593,5 +596,15 @@ const styles = StyleSheet.create({
   userPostTitle: {
     fontSize: 16,
     marginBottom: 5,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

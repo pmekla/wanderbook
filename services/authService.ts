@@ -15,6 +15,13 @@ export interface User {
   posts: string[];
   friends: string[];
   incomingRequests?: string[];
+  bucketListItems: {
+    id: string;
+    name: string;
+    privacy: string;
+    completed: boolean;
+    images?: string[];
+  }[];
 }
 
 // Authentication state keys
@@ -67,8 +74,11 @@ export const registerUser = async (
       return null;
     }
 
+    // Generate hashed password
     const saltRounds = 10;
-    const salt = bcrypt.genSaltSync(saltRounds);
+    var bcrypt = require('bcryptjs');
+    let salt = bcrypt.genSaltSync(saltRounds);
+      
     const hashedPassword = bcrypt.hashSync(password, salt);
     const newUser = {
       username,
@@ -79,6 +89,7 @@ export const registerUser = async (
       posts: [],
       friends: [],
       incomingRequests: [],
+      bucketListItems: [],
     };
 
     const docRef = await addDoc(collection(db, 'users'), newUser);
@@ -151,5 +162,15 @@ export const addPostToUser = async (userID: string, postID: string): Promise<voi
   } catch (error) {
     console.error('Add post to user error:', error);
     throw error;
+  }
+};
+
+export const getCurrentUserID = async (): Promise<string | null> => {
+  try {
+    const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
+    return userID;
+  } catch (error) {
+    console.error('Get current user ID error:', error);
+    return null;
   }
 };

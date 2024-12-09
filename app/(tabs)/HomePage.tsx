@@ -10,7 +10,14 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  getDoc,
+  doc,
+} from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AUTH_KEYS } from "../../services/authService";
@@ -22,10 +29,19 @@ interface Post {
   postID: string;
   title: string;
   imageURLs: string[]; // Array of Cloudinary URLs
+  description?: string;
+  rating?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 const HomePage = () => {
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
+  const [friendsPosts, setFriendsPosts] = useState<
+    (Post & { username: string })[]
+  >([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
@@ -33,14 +49,57 @@ const HomePage = () => {
     try {
       const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
       if (!userID) return;
-      const q = query(collection(db, "posts"), where("userID", "==", userID));
-      const postsSnapshot = await getDocs(q);
-      const postsData = postsSnapshot.docs.map((doc) => ({
+
+      // Fetch recent posts by the user
+      const userPostsQuery = query(
+        collection(db, "posts"),
+        where("userID", "==", userID)
+      );
+      const userPostsSnapshot = await getDocs(userPostsQuery);
+      const userPostsData = userPostsSnapshot.docs.map((doc) => ({
         postID: doc.id,
         title: doc.data().title,
-        imageURLs: doc.data().imageURLs || [], // Use Cloudinary URLs
+        imageURLs: doc.data().imageURLs || [],
+        description: doc.data().description,
+        rating: doc.data().rating,
+        location: doc.data().location,
       }));
-      setRecentPosts(postsData);
+      setRecentPosts(userPostsData);
+
+      // Fetch friends' posts
+      const userDoc = await getDoc(doc(db, "users", userID));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const friends = userData.friends || [];
+
+        const friendsPostsPromises = friends.map(async (friendID: string) => {
+          const friendDoc = await getDoc(doc(db, "users", friendID));
+          const friendUsername = friendDoc.exists()
+            ? friendDoc.data().username
+            : "Unknown";
+
+          const friendPostsQuery = query(
+            collection(db, "posts"),
+            where("userID", "==", friendID),
+            where("visibility", "in", ["friends", "public"])
+          );
+          const friendPostsSnapshot = await getDocs(friendPostsQuery);
+          return friendPostsSnapshot.docs.map((doc) => ({
+            postID: doc.id,
+            title: doc.data().title,
+            imageURLs: doc.data().imageURLs || [],
+            description: doc.data().description,
+            rating: doc.data().rating,
+            location: doc.data().location,
+            username: friendUsername,
+          }));
+        });
+
+        const friendsPostsData = (
+          await Promise.all(friendsPostsPromises)
+        ).flat();
+        setFriendsPosts(friendsPostsData);
+      }
     } catch (error) {
       console.error("Error fetching posts:", error);
     }
@@ -83,7 +142,7 @@ const HomePage = () => {
         <View style={styles.container}>
           <Text style={styles.header}>home</Text>
 
-          {/* Recent Lists */}
+          {/* Recent Posts */}
           <Text style={styles.sectionTitle}>Recent Posts</Text>
           <View style={styles.listContainer}>
             <FlatList
@@ -98,7 +157,7 @@ const HomePage = () => {
                   {item.imageURLs && item.imageURLs.length > 0 ? (
                     <Image
                       source={{ uri: item.imageURLs[0] }}
-                      style={{ width: 150, height: 100 }}
+                      style={styles.cardImage}
                     />
                   ) : (
                     <View style={styles.noImagePlaceholder}>
@@ -106,6 +165,35 @@ const HomePage = () => {
                     </View>
                   )}
                   <Text style={styles.cardTitle}>{item.title}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+
+          {/* Friends' Posts */}
+          <Text style={styles.sectionTitle}>Friends' Posts</Text>
+          <View style={styles.listContainer}>
+            <FlatList
+              data={friendsPosts}
+              horizontal
+              keyExtractor={(item) => item.postID}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => setSelectedPost(item)}
+                >
+                  {item.imageURLs && item.imageURLs.length > 0 ? (
+                    <Image
+                      source={{ uri: item.imageURLs[0] }}
+                      style={styles.cardImage}
+                    />
+                  ) : (
+                    <View style={styles.noImagePlaceholder}>
+                      <Text>No Image</Text>
+                    </View>
+                  )}
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardSubtitle}>by {item.username}</Text>
                 </TouchableOpacity>
               )}
             />
@@ -169,6 +257,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
     borderRadius: 8,
     overflow: "hidden",
+    padding: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardImage: {
+    width: 150,
+    height: 100,
+    resizeMode: "cover",
+    padding: 6,
+    borderRadius: 8,
   },
   spotCard: {
     width: 150,
@@ -205,6 +303,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
     fontWeight: "bold",
+  },
+  cardSubtitle: {
+    textAlign: "center",
+    color: "#555",
   },
 });
 

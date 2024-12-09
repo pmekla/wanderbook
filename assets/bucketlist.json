@@ -1,0 +1,9 @@
+{
+  "bucketlist": {
+    "userID": "1",
+    "username": "This is a post",
+    "title": "This is a post",
+    "visibility": "public",
+    "completed": false
+  }
+}

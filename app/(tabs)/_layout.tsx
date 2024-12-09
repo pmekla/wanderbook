@@ -63,6 +63,14 @@ export default function TabsLayout() {
           headerShown: false, // Hides the default header
         }}
       />
+
+      {/* Profile Page */}
+      <Tabs.Screen
+        name="PostViewer"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
