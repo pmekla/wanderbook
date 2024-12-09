@@ -7,7 +7,6 @@ import {
   StyleSheet,
   ImageBackground,
   Alert,
-  ActivityIndicator,
   SafeAreaView,
   TouchableWithoutFeedback,
   Keyboard,
@@ -17,17 +16,16 @@ import {
 import { useRouter } from "expo-router";
 import * as Font from "expo-font";
 import AppLoading from "expo-app-loading";
-import { loginUser } from "../services/authService";
+import { registerUser } from "../services/authService";
 
 const backgroundImage = require("../assets/images/LoginBackground.jpeg");
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const loadFonts = async () => {
     await Font.loadAsync({
@@ -46,20 +44,23 @@ export default function LoginPage() {
     );
   }
 
-  const handleLogin = async () => {
-    setIsLoading(true);
+  const handleRegister = async () => {
     try {
-      const user = await loginUser(username, password);
-      if (user) {
+      if (!username || !password) {
+        Alert.alert("Please fill in all fields.");
+        return;
+      }
+
+      const newUser = await registerUser(password, username);
+      if (newUser) {
         router.push("/(tabs)/ProfilePage");
       } else {
-        Alert.alert("Invalid username or password. Please try again.");
+        // Username is taken; clear username field
+        setUsername("");
       }
     } catch (error) {
-      console.error("Login error:", error);
-      Alert.alert("An error occurred during login. Please try again.");
-    } finally {
-      setIsLoading(false);
+      console.error("Registration error:", error);
+      Alert.alert("An error occurred during registration. Please try again.");
     }
   };
 
@@ -77,7 +78,7 @@ export default function LoginPage() {
                 <Text style={styles.label}>Username</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter your username"
+                  placeholder="Choose a username"
                   placeholderTextColor="#888"
                   value={username}
                   onChangeText={setUsername}
@@ -91,29 +92,14 @@ export default function LoginPage() {
                   onChangeText={setPassword}
                   secureTextEntry
                 />
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.signInButton}
-                    onPress={handleLogin}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#ffffff" size="small" />
-                    ) : (
-                      <Text style={styles.buttonText}>Sign in</Text>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.registerButton}
-                    onPress={() => router.push("/RegisterPage")}
-                  >
-                    <Text style={styles.buttonText}>Register</Text>
-                  </TouchableOpacity>
-                </View>
                 <TouchableOpacity
-                  onPress={() => alert("Forgot password feature coming soon!")}
+                  style={styles.registerButton}
+                  onPress={handleRegister}
                 >
-                  <Text style={styles.forgotPassword}>Forgot password?</Text>
+                  <Text style={styles.buttonText}>Register</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.back()}>
+                  <Text style={styles.backToLogin}>Back to Login</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -174,32 +160,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
   },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  signInButton: {
-    flex: 1,
-    backgroundColor: "#6c757d",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    marginRight: 5,
-  },
   registerButton: {
-    flex: 1,
-    backgroundColor: "#17a2b8",
+    backgroundColor: "#28a745",
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: "center",
-    marginLeft: 5,
+    marginBottom: 10,
   },
   buttonText: {
     color: "#ffffff",
     fontWeight: "bold",
   },
-  forgotPassword: {
+  backToLogin: {
     textAlign: "center",
     color: "#007bff",
     textDecorationLine: "underline",
