@@ -29,6 +29,7 @@ import {
   addDoc,
   doc,
   getDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "../../firebaseConfig.js";
 import ImageComponent from "../../components/ImageComponent";
@@ -359,6 +360,7 @@ const ProfilePage = () => {
   };
 
   const confirmDeleteBucketListItem = (id: string) => {
+    console.log("Delete bucket list item:", id);
     Alert.alert(
       "Delete Bucket List",
       "Are you sure you want to delete this bucket list item?",
@@ -467,6 +469,33 @@ const ProfilePage = () => {
     }
   };
 
+  // Add confirmation before deleting a post
+  const confirmDeletePost = (postID: string) => {
+    Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => deletePost(postID),
+      },
+    ]);
+  };
+
+  // Implement the deletePost function
+  const deletePost = async (postID: string) => {
+    try {
+      await deleteDoc(doc(db, "posts", postID));
+      setUserPosts(userPosts.filter((post) => post.postID !== postID));
+      Alert.alert("Success", "Post deleted successfully");
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      Alert.alert("Error", "Failed to delete post");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -477,9 +506,9 @@ const ProfilePage = () => {
       >
         {/* Header Section */}
         <View style={styles.header}>
-          {/* Name Centered at the Top */}
+          {/* Name Centered */}
           <Text style={styles.name}>{username}</Text>
-          {/* Settings Icon in top right */}
+          {/* Settings Icon */}
           <TouchableOpacity
             style={styles.settingsIcon}
             onPress={() => setModalVisible(true)}
@@ -594,6 +623,7 @@ const ProfilePage = () => {
                   key={item.postID}
                   style={styles.gridItem}
                   onPress={() => setSelectedPost(item)}
+                  onLongPress={() => confirmDeletePost(item.postID)} // Add onLongPress handler
                 >
                   {item.imageURLs && item.imageURLs.length > 0 ? (
                     <Image

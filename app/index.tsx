@@ -8,6 +8,11 @@ import {
   ImageBackground,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Font from "expo-font";
@@ -59,54 +64,63 @@ export default function LoginPage() {
   };
 
   return (
-    <ImageBackground source={backgroundImage} style={styles.background}>
-      <View style={styles.container}>
-        <Text style={styles.title}>wanderbook</Text>
-        <View style={styles.formContainer}>
-          <Text style={styles.label}>Username</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your username"
-            placeholderTextColor="#888"
-            value={username}
-            onChangeText={setUsername}
-          />
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your password"
-            placeholderTextColor="#888"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.signInButton}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <Text style={styles.buttonText}>Sign in</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={() => router.push("/RegisterPage")}
-            >
-              <Text style={styles.buttonText}>Register</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => alert("Forgot password feature coming soon!")}
-          >
-            <Text style={styles.forgotPassword}>Forgot password?</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ImageBackground>
+    <SafeAreaView style={{ flex: 1 }}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ImageBackground source={backgroundImage} style={styles.background}>
+            <View style={styles.container}>
+              <Text style={styles.title}>wanderbook</Text>
+              <View style={styles.formContainer}>
+                <Text style={styles.label}>Username</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your username"
+                  placeholderTextColor="#888"
+                  value={username}
+                  onChangeText={setUsername}
+                />
+                <Text style={styles.label}>Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#888"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={styles.signInButton}
+                    onPress={handleLogin}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    ) : (
+                      <Text style={styles.buttonText}>Sign in</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.registerButton}
+                    onPress={() => router.push("/RegisterPage")}
+                  >
+                    <Text style={styles.buttonText}>Register</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  onPress={() => alert("Forgot password feature coming soon!")}
+                >
+                  <Text style={styles.forgotPassword}>Forgot password?</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ImageBackground>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 }
 

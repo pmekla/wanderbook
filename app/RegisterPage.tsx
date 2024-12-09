@@ -7,6 +7,11 @@ import {
   StyleSheet,
   ImageBackground,
   Alert,
+  SafeAreaView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Font from "expo-font";
@@ -60,39 +65,48 @@ export default function RegisterPage() {
   };
 
   return (
-    <ImageBackground source={backgroundImage} style={styles.background}>
-      <View style={styles.container}>
-        <Text style={styles.title}>wanderbook</Text>
-        <View style={styles.formContainer}>
-          <Text style={styles.label}>Username</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Choose a username"
-            placeholderTextColor="#888"
-            value={username}
-            onChangeText={setUsername}
-          />
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your password"
-            placeholderTextColor="#888"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <TouchableOpacity
-            style={styles.registerButton}
-            onPress={handleRegister}
-          >
-            <Text style={styles.buttonText}>Register</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backToLogin}>Back to Login</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ImageBackground>
+    <SafeAreaView style={{ flex: 1 }}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ImageBackground source={backgroundImage} style={styles.background}>
+            <View style={styles.container}>
+              <Text style={styles.title}>wanderbook</Text>
+              <View style={styles.formContainer}>
+                <Text style={styles.label}>Username</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Choose a username"
+                  placeholderTextColor="#888"
+                  value={username}
+                  onChangeText={setUsername}
+                />
+                <Text style={styles.label}>Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#888"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+                <TouchableOpacity
+                  style={styles.registerButton}
+                  onPress={handleRegister}
+                >
+                  <Text style={styles.buttonText}>Register</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.back()}>
+                  <Text style={styles.backToLogin}>Back to Login</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ImageBackground>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 }
 
