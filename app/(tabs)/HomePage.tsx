@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+
 import {
   View,
   Text,
@@ -21,14 +22,13 @@ import {
 import { db } from "../../firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AUTH_KEYS } from "../../services/authService";
-import ImageComponent from "../../components/ImageComponent";
 import PostViewer from "./PostViewer";
 
 // Update Post interface
 interface Post {
   postID: string;
   title: string;
-  imageURLs: string[]; // Array of Cloudinary URLs
+  imageURLs: string[];
   description?: string;
   rating?: number;
   location?: {
@@ -50,7 +50,6 @@ const HomePage = () => {
       const userID = await AsyncStorage.getItem(AUTH_KEYS.USER_ID);
       if (!userID) return;
 
-      // Fetch recent posts by the user
       const userPostsQuery = query(
         collection(db, "posts"),
         where("userID", "==", userID)
@@ -66,7 +65,6 @@ const HomePage = () => {
       }));
       setRecentPosts(userPostsData);
 
-      // Fetch friends' posts
       const userDoc = await getDoc(doc(db, "users", userID));
       if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -114,19 +112,18 @@ const HomePage = () => {
     fetchPosts();
   }, []);
 
-  const recentLists = ["List 1", "List 2", "List 3", "List 4"];
   const topSpots = [
     {
       id: 1,
       title: "Annapolis Rock",
-      image: "https://via.placeholder.com/150",
+      image: require("../../assets/images/annapolisrock.jpg"),
       details:
         "Length: 5 miles\nElevation: 840 ft\nDifficulty: Moderate\nPermit Required: None",
     },
     {
       id: 2,
       title: "Annapolis Rock",
-      image: "https://via.placeholder.com/150",
+      image: require("../../assets/images/niagFalls.jpeg"),
       details:
         "Length: 5 miles\nElevation: 840 ft\nDifficulty: Moderate\nPermit Required: None",
     },
@@ -142,77 +139,64 @@ const HomePage = () => {
         <View style={styles.container}>
           <Text style={styles.header}>home</Text>
 
-          {/* Recent Posts */}
-          <Text style={styles.sectionTitle}>Recent Posts</Text>
-          <View style={styles.listContainer}>
-            <FlatList
-              data={recentPosts}
-              horizontal
-              keyExtractor={(item) => item.postID}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.card}
-                  onPress={() => setSelectedPost(item)}
-                >
-                  {item.imageURLs && item.imageURLs.length > 0 ? (
-                    <Image
-                      source={{ uri: item.imageURLs[0] }}
-                      style={styles.cardImage}
-                    />
-                  ) : (
-                    <View style={styles.noImagePlaceholder}>
-                      <Text>No Image</Text>
-                    </View>
-                  )}
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+          {/* World Posts */}
+          <Text style={styles.sectionTitle}>World Posts</Text>
+          <FlatList
+            data={recentPosts}
+            horizontal
+            keyExtractor={(item) => item.postID}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.spotCard}>
+                {item.imageURLs && item.imageURLs.length > 0 ? (
+                  <Image
+                    source={{ uri: item.imageURLs[0] }}
+                    style={styles.spotImage}
+                  />
+                ) : (
+                  <View style={styles.noImagePlaceholder}>
+                    <Text>No Image</Text>
+                  </View>
+                )}
+                <Text style={styles.spotTitle}>{item.title}</Text>
+              </TouchableOpacity>
+            )}
+          />
 
           {/* Friends' Posts */}
           <Text style={styles.sectionTitle}>Friends' Posts</Text>
-          <View style={styles.listContainer}>
-            <FlatList
-              data={friendsPosts}
-              horizontal
-              keyExtractor={(item) => item.postID}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.card}
-                  onPress={() => setSelectedPost(item)}
-                >
-                  {item.imageURLs && item.imageURLs.length > 0 ? (
-                    <Image
-                      source={{ uri: item.imageURLs[0] }}
-                      style={styles.cardImage}
-                    />
-                  ) : (
-                    <View style={styles.noImagePlaceholder}>
-                      <Text>No Image</Text>
-                    </View>
-                  )}
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.cardSubtitle}>by {item.username}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+          <FlatList
+  data={friendsPosts}
+  horizontal
+  keyExtractor={(item) => item.postID}
+  renderItem={({ item }) => (
+    <TouchableOpacity style={styles.card} onPress={() => setSelectedPost(item)}>
+      {item.imageURLs && item.imageURLs.length > 0 ? (
+        <Image source={{ uri: item.imageURLs[0] }} style={styles.cardImage} />
+      ) : (
+        <View style={styles.noImagePlaceholder}>
+          <Text>No Image</Text>
+        </View>
+      )}
+      <Text style={styles.cardTitle}>{item.title}</Text>
+      <Text style={styles.cardSubtitle}>by {item.username}</Text>
+    </TouchableOpacity>
+  )}
+/>
 
           {/* Top Spots */}
           <Text style={styles.sectionTitle}>Top Spots</Text>
           <FlatList
-            data={topSpots}
-            horizontal
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.spotCard}>
-                <Image source={{ uri: item.image }} style={styles.spotImage} />
-                <Text style={styles.spotTitle}>{item.title}</Text>
-                <Text style={styles.spotDetails}>{item.details}</Text>
-              </TouchableOpacity>
-            )}
-          />
+  data={topSpots}
+  horizontal
+  keyExtractor={(item) => item.id.toString()}
+  renderItem={({ item }) => (
+    <TouchableOpacity style={styles.spotCard}>
+      <Image source={item.image} style={styles.spotImage} />
+      <Text style={styles.spotTitle}>{item.title}</Text>
+      <Text style={styles.spotDetails}>{item.details}</Text>
+    </TouchableOpacity>
+  )}
+/>
         </View>
       </ScrollView>
 
@@ -231,7 +215,7 @@ const HomePage = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FFF5E4", // Same as your container background to maintain consistency
+    backgroundColor: "#FFF5E4",
   },
   container: {
     flex: 1,
@@ -248,26 +232,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: 8,
   },
-  listContainer: {
-    marginBottom: 16,
-  },
-  card: {
-    width: 150,
-    marginRight: 16,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 8,
-    overflow: "hidden",
-    padding: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cardImage: {
-    width: 150,
-    height: 100,
-    resizeMode: "cover",
-    padding: 6,
-    borderRadius: 8,
-  },
   spotCard: {
     width: 150,
     marginRight: 16,
@@ -278,7 +242,9 @@ const styles = StyleSheet.create({
   },
   spotImage: {
     width: "100%",
-    height: 100,
+  height: 100,
+  resizeMode: "cover", // Ensures the image fits
+  borderRadius: 8,
   },
   spotTitle: {
     fontWeight: "bold",
@@ -307,6 +273,22 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     textAlign: "center",
     color: "#555",
+  },
+  card: {
+    width: 150,
+    marginRight: 16,
+    backgroundColor: "#e0e0e0", // Light gray background
+    borderRadius: 8, // Rounded corners
+    overflow: "hidden",
+    padding: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardImage: {
+    width: 150,
+    height: 100,
+    resizeMode: "cover", // Ensures the image fits within the bounds
+    borderRadius: 8,
   },
 });
 
