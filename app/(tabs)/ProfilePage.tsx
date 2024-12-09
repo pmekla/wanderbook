@@ -82,6 +82,7 @@ const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [friendsData, setFriendsData] = useState<User[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [userBadges, setUserBadges] = useState<string[]>([]);
   const [bucketListItems, setBucketListItems] = useState<
     {
       id: string;
@@ -640,11 +641,42 @@ const ProfilePage = () => {
           </View>
         )}
 
-        {activeTab === "Badges" && (
-          <View style={styles.grid}>
-            <Text style={styles.gridText}>No badges yet.</Text>
+{activeTab === "Badges" && (
+  <View style={styles.badgesContainer}>
+    {userBadges.length === 0 ? (
+      <View style={styles.emptyBadges}>
+        <Text style={styles.badgesEmptyText}>
+          No badges yet, see below on how to collect badges!
+        </Text>
+        {/* Placeholder Badges */}
+        <View style={styles.badgesGrid}>
+          <View style={styles.badgeBox}>
+            <Ionicons name="medal-outline" size={40} color="#aaa" />
+            <Text style={styles.badgeText}>First Post</Text>
           </View>
-        )}
+          <View style={styles.badgeBox}>
+            <Ionicons name="medal-outline" size={40} color="#aaa" />
+            <Text style={styles.badgeText}>50 Friends</Text>
+          </View>
+          <View style={styles.badgeBox}>
+            <Ionicons name="medal-outline" size={40} color="#aaa" />
+            <Text style={styles.badgeText}>Completed Hike</Text>
+          </View>
+        </View>
+      </View>
+    ) : (
+      // Render actual badges if available
+      <View style={styles.badgesGrid}>
+        {userBadges.map((badge, index) => (
+          <View key={index} style={styles.badgeBox}>
+            <Ionicons name="medal" size={40} color="#ffd700" />
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        ))}
+      </View>
+    )}
+  </View>
+)}
       </ScrollView>
 
       {/* Post Viewer Modal */}
@@ -1156,6 +1188,37 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
+  badgesContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyBadges: {
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  badgesEmptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#555",
+    marginBottom: 20,
+  },
+  badgesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 20,
+  },
+  badgeBox: {
+    width: 80,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  badgeText: {
+    marginTop: 5,
+    fontSize: 12,
+    textAlign: "center",
+    color: "#555",
+  },  
 });
 
 export default ProfilePage;
