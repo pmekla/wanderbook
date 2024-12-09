@@ -1,0 +1,15 @@
+{
+  "post": {
+    "postID": "234",
+    "userID": "1",
+    "title": "This is a post",
+    "description": "This is a post",
+    "rating": 5,
+    "visibility": "public",
+    "images": ["image1.jpg", "image2.jpg", "image3.jpg"],
+    "location": {
+      "latitude": 37.7749,
+      "longitude": -122.4194
+    }
+  }
+}
