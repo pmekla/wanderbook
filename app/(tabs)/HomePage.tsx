@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-
 import {
   View,
   Text,
@@ -122,10 +121,10 @@ const HomePage = () => {
     },
     {
       id: 2,
-      title: "Annapolis Rock",
+      title: "Niagara Falls",
       image: require("../../assets/images/niagFalls.jpeg"),
       details:
-        "Length: 5 miles\nElevation: 840 ft\nDifficulty: Moderate\nPermit Required: None",
+        "Sightseeing Waterfall\nNiagara Falls, NY\nOntario, Canada\nLots of tourist activities",
     },
   ];
 
@@ -139,8 +138,15 @@ const HomePage = () => {
         <View style={styles.container}>
           <Text style={styles.header}>home</Text>
 
-          {/* World Posts */}
-          <Text style={styles.sectionTitle}>World Posts</Text>
+          {/* Your Recent Posts */}
+          <Text style={styles.sectionTitle}>Your Recent Posts</Text>
+          {recentPosts.length === 0 && (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateText}>
+                No recent posts, post now!
+              </Text>
+            </View>
+          )}
           <FlatList
             data={recentPosts}
             horizontal
@@ -163,40 +169,57 @@ const HomePage = () => {
           />
 
           {/* Friends' Posts */}
-          <Text style={styles.sectionTitle}>Friends' Posts</Text>
-          <FlatList
-  data={friendsPosts}
-  horizontal
-  keyExtractor={(item) => item.postID}
-  renderItem={({ item }) => (
-    <TouchableOpacity style={styles.card} onPress={() => setSelectedPost(item)}>
-      {item.imageURLs && item.imageURLs.length > 0 ? (
-        <Image source={{ uri: item.imageURLs[0] }} style={styles.cardImage} />
-      ) : (
-        <View style={styles.noImagePlaceholder}>
-          <Text>No Image</Text>
-        </View>
-      )}
-      <Text style={styles.cardTitle}>{item.title}</Text>
-      <Text style={styles.cardSubtitle}>by {item.username}</Text>
-    </TouchableOpacity>
-  )}
-/>
+          <View style={styles.sectionSpacing}>
+            <Text style={styles.sectionTitle}>Friends' Posts</Text>
+            {friendsPosts.length === 0 && (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>
+                  All up to date with your friends' adventures!
+                </Text>
+              </View>
+            )}
+            <FlatList
+              data={friendsPosts}
+              horizontal
+              keyExtractor={(item) => item.postID}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => setSelectedPost(item)}
+                >
+                  {item.imageURLs && item.imageURLs.length > 0 ? (
+                    <Image
+                      source={{ uri: item.imageURLs[0] }}
+                      style={styles.cardImage}
+                    />
+                  ) : (
+                    <View style={styles.noImagePlaceholder}>
+                      <Text>No Image</Text>
+                    </View>
+                  )}
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardSubtitle}>by {item.username}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
 
           {/* Top Spots */}
-          <Text style={styles.sectionTitle}>Top Spots</Text>
-          <FlatList
-  data={topSpots}
-  horizontal
-  keyExtractor={(item) => item.id.toString()}
-  renderItem={({ item }) => (
-    <TouchableOpacity style={styles.spotCard}>
-      <Image source={item.image} style={styles.spotImage} />
-      <Text style={styles.spotTitle}>{item.title}</Text>
-      <Text style={styles.spotDetails}>{item.details}</Text>
-    </TouchableOpacity>
-  )}
-/>
+          <View style={styles.sectionSpacing}>
+            <Text style={styles.sectionTitle}>Top Spots</Text>
+            <FlatList
+              data={topSpots}
+              horizontal
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.spotCard}>
+                  <Image source={item.image} style={styles.spotImage} />
+                  <Text style={styles.spotTitle}>{item.title}</Text>
+                  <Text style={styles.spotDetails}>{item.details}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
         </View>
       </ScrollView>
 
@@ -232,6 +255,17 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: 8,
   },
+  sectionSpacing: {
+    marginTop: 20,
+  },
+  emptyStateContainer: {
+    paddingHorizontal: 16,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: "#555",
+    textAlign: "left", // Aligns the text with the section title
+  },
   spotCard: {
     width: 150,
     marginRight: 16,
@@ -242,9 +276,9 @@ const styles = StyleSheet.create({
   },
   spotImage: {
     width: "100%",
-  height: 100,
-  resizeMode: "cover", // Ensures the image fits
-  borderRadius: 8,
+    height: 100,
+    resizeMode: "cover",
+    borderRadius: 8,
   },
   spotTitle: {
     fontWeight: "bold",
@@ -277,17 +311,17 @@ const styles = StyleSheet.create({
   card: {
     width: 150,
     marginRight: 16,
-    backgroundColor: "#e0e0e0", // Light gray background
-    borderRadius: 8, // Rounded corners
+    backgroundColor: "#e0e0e0",
+    borderRadius: 8,
     overflow: "hidden",
     padding: 8,
     justifyContent: "center",
     alignItems: "center",
   },
   cardImage: {
-    width: 150,
-    height: 100,
-    resizeMode: "cover", // Ensures the image fits within the bounds
+    width: 150, // Match the card width
+    height: 100, // Match the height requirement for images
+    resizeMode: "cover", // Ensure the image fits within the bounds
     borderRadius: 8,
   },
 });
