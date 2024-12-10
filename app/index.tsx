@@ -107,7 +107,7 @@ export default function LoginPage() {
                     style={styles.registerButton}
                     onPress={() => router.push("/RegisterPage")}
                   >
-                    <Text style={styles.buttonText}>Register</Text>
+                    <Text style={styles.buttonText}>Register →</Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity

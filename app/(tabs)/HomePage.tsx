@@ -152,7 +152,10 @@ const HomePage = () => {
             horizontal
             keyExtractor={(item) => item.postID}
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.spotCard}>
+              <TouchableOpacity
+                style={styles.spotCard}
+                onPress={() => setSelectedPost(item)} // Added onPress handler
+              >
                 {item.imageURLs && item.imageURLs.length > 0 ? (
                   <Image
                     source={{ uri: item.imageURLs[0] }}
@@ -185,7 +188,7 @@ const HomePage = () => {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.card}
-                  onPress={() => setSelectedPost(item)}
+                  onPress={() => setSelectedPost(item)} // Added onPress handler
                 >
                   {item.imageURLs && item.imageURLs.length > 0 ? (
                     <Image

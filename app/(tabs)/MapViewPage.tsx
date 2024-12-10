@@ -83,7 +83,9 @@ export default function MapViewPage() {
             longitude: typeof lng === "number" ? lng : parseFloat(lng),
             description: data.description || "",
             category: data.category || "Other",
-            imageURLs: data.imageURLs || [], // Add this line
+            imageURLs: data.imageURLs || [],
+            rating: data.rating || 0, // Added rating
+            visibility: data.visibility || "public", // Added visibility
           };
         })
         .filter((loc) => !isNaN(loc.latitude) && !isNaN(loc.longitude));
@@ -176,8 +178,12 @@ export default function MapViewPage() {
   };
 
   const handleMarkerLongPress = (post: any) => {
-    // Add this function
-    setSelectedPost(post);
+    // Ensure post includes rating and visibility
+    setSelectedPost({
+      ...post,
+      rating: post.rating || 0,
+      visibility: post.visibility || "public",
+    });
     setPostViewerVisible(true);
   };
 
