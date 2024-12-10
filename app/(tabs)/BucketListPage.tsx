@@ -86,7 +86,7 @@ const BucketListPage = () => {
 
   const createBucketList = async () => {
     if (newListName.trim() === "") {
-      alert("Please enter a name for your bucket list.");
+      alert("Please enter a name for your bucket list item.");
       return;
     }
 
@@ -254,7 +254,7 @@ const BucketListPage = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>create your bucketlist</Text>
+        <Text style={styles.title}>create your bucket list</Text>
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.textInput}

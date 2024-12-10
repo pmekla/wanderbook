@@ -319,7 +319,7 @@ export default function AddItemPage() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <Text style={styles.header}>New Adventure</Text>
+        <Text style={styles.header}>new adventure</Text>
 
         {/* Name Input */}
         <View style={styles.inputContainer}>
